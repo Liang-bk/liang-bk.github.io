@@ -1,5 +1,6 @@
 import { rehypeHeadingIds } from '@astrojs/markdown-remark'
-import vercel from '@astrojs/vercel'
+// import vercel from '@astrojs/vercel'
+import vercelStatic from '@astrojs/vercel/static'
 import AstroPureIntegration from 'astro-pure'
 import { defineConfig } from 'astro/config'
 import rehypeKatex from 'rehype-katex'
@@ -36,7 +37,7 @@ export default defineConfig({
   // adapter: vercel(),
   // output: 'server',
   // 2. Vercel (static)
-  adapter: vercelStatic(),
+  adapter: vercelStatic({}),
   // 3. Local (standalone)
   // adapter: node({ mode: 'standalone' }),
   // output: 'server',
