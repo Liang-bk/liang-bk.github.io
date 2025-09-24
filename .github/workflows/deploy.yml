@@ -2,8 +2,8 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ]       # 如果你用的主分支是 main；若是 master 或其他就改成那个分支名
-  workflow_dispatch:         # 允许你手动触发
+    branches: [ main ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,21 +14,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Install dependencies, build, and upload site
-        uses: withastro/action@v3
-        # 如果你的项目不在根目录，可以在 with 中加 path: 子目录
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.20
+      - run: bun install
+      - run: bun run build
+      - name: Upload static files as artifact
+        id: upload
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      # url: 设置可选，但 GitHub 会自动处理
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+          
