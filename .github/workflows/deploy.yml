@@ -16,14 +16,23 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.2.20
-      - run: bun install
-      - run: bun run build
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build project
+        run: bun run build
+
+      # 禁用 Jekyll（避免 404）
+      - name: Add .nojekyll
+        run: touch dist/.nojekyll
+
       - name: Upload static files as artifact
-        id: upload
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist/
@@ -38,4 +47,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-          
