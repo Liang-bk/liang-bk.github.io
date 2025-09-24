@@ -27,7 +27,7 @@ export default defineConfig({
   // Top-Level Options
   site: 'https://liang-bk.github.io',
   // Deploy to a sub path; See https://astro-pure.js.org/docs/setup/deployment#platform-with-base-path
-  // base: '/astro-pure/',
+  base: '/',
   trailingSlash: 'never',
 
   // Adapter
