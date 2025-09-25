@@ -60,29 +60,29 @@ export const theme: ThemeUserConfig = {
     // Year format
     year: `© ${new Date().getFullYear()}`,
     // year: `© 2019 - ${new Date().getFullYear()}`,
-    links: [
-      // Registration link
-      {
-        title: 'Moe ICP 114514',
-        link: 'https://icp.gov.moe/?keyword=114514',
-        style: 'text-sm' // Uno/TW CSS class
-      },
-      {
-        title: 'Travelling',
-        link: 'https://www.travellings.cn/go.html',
-        style: 'text-sm'
-      },
-      // Privacy Policy link
-      {
-        title: 'Site Policy',
-        link: '/terms/list',
-        pos: 2 // position set to 2 will be appended to copyright line
-      }
-    ],
+    // links: [
+    //   // Registration link
+    //   {
+    //     title: 'Moe ICP 114514',
+    //     link: 'https://icp.gov.moe/?keyword=114514',
+    //     style: 'text-sm' // Uno/TW CSS class
+    //   },
+    //   {
+    //     title: 'Travelling',
+    //     link: 'https://www.travellings.cn/go.html',
+    //     style: 'text-sm'
+    //   },
+    //   // Privacy Policy link
+    //   {
+    //     title: 'Site Policy',
+    //     link: '/terms/list',
+    //     pos: 2 // position set to 2 will be appended to copyright line
+    //   }
+    // ],
     /** Enable displaying a “Astro & Pure theme powered” link in your site’s footer. */
     credits: true,
     /** Optional details about the social media accounts for this site. */
-    social: { github: 'https://github.com/cworld1/astro-theme-pure' }
+    social: { github: 'https://github.com/Liang-bk' }
   },
 
   content: {
@@ -153,7 +153,7 @@ export const integ: IntegrationUserConfig = {
   },
   // Comment system
   waline: {
-    enable: true,
+    enable: false,
     // Server service link
     server: 'https://astro-theme-pure-waline.arthals.ink/',
     // Refer https://waline.js.org/en/guide/features/emoji.html

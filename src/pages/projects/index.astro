@@ -12,31 +12,31 @@ import wechat from '@/assets/wechat-qrcode.jpg'
 
 const headings = [
   { depth: 2, slug: 'theme', text: 'Theme' },
-  { depth: 2, slug: 'programs', text: 'Programs' },
-  { depth: 2, slug: 'learnings', text: 'Learnings' },
+  // { depth: 2, slug: 'programs', text: 'Programs' },
+  // { depth: 2, slug: 'learnings', text: 'Learnings' },
   { depth: 2, slug: 'others', text: 'Others' },
   { depth: 2, slug: 'gpg-signature', text: 'GPG Signature' },
-  { depth: 2, slug: 'sponsorship', text: 'Sponsorship' }
+  // { depth: 2, slug: 'sponsorship', text: 'Sponsorship' }
 ]
 ---
-
-<PageLayout title='Projects' {headings} view>
+<!-- < title='Projects' {headings} view> -->
+<PageLayout title='Projects' {headings}>
   <p>Github Activities:</p>
   <p>
     <Image
-      src='https://ghchart.rshah.org/659eb9/cworld1'
+      src='https://ghchart.rshah.org/659eb9/Liang-bk'
       alt='github activities'
       inferSize
       loading='lazy'
     />
   </p>
-  <p>
+  <!-- <p>
     If you think it would be useful or interesting to collaborate on a project, you can donate to
     support my work or contact me to discuss a project.
   </p>
   <Button title='Checkout sponsorship' class='w-fit' href='#sponsorship'>
     <Icon class='size-5' name='receive-money' slot='before' />
-  </Button>
+  </Button> -->
 
   <h2 id='theme'>Theme</h2>
   <ProjectSection
@@ -56,7 +56,7 @@ const headings = [
     ]}
   />
 
-  <h2 id='programs'>Programs</h2>
+  <!-- <h2 id='programs'>Programs</h2>
   <ProjectSection
     projects={[
       {
@@ -81,8 +81,8 @@ const headings = [
         ]
       }
     ]}
-  />
-  <Collapse title='Some old projects'>
+  /> -->
+  <!-- <Collapse title='Some old projects'>
     <ProjectSection
       projects={[
         {
@@ -100,9 +100,9 @@ const headings = [
         }
       ]}
     />
-  </Collapse>
+  </Collapse> -->
 
-  <h2 id='learnings'>Learnings</h2>
+  <!-- <h2 id='learnings'>Learnings</h2>
   <ProjectSection
     class='my-2'
     projects={[
@@ -122,9 +122,9 @@ const headings = [
         ]
       }
     ]}
-  />
+  /> -->
 
-  <h2 id='others'>Others</h2>
+  <!-- <h2 id='others'>Others</h2>
   <ProjectSection
     projects={[
       {
@@ -138,7 +138,7 @@ const headings = [
         links: [{ type: 'github', href: 'https://github.com/zhuozhiyongde' }]
       }
     ]}
-  />
+  /> -->
 
   <!-- gpg signature -->
   <h2 id='gpg-signature'>GPG Signature</h2>
@@ -151,7 +151,7 @@ const headings = [
   </Button>
 
   <!-- sponsorship -->
-  <h2 id='sponsorship'>Sponsorship</h2>
+  <!-- <h2 id='sponsorship'>Sponsorship</h2>
   <p>Please leave a message or contact me proactively after sponsorship.</p>
   <Sponsorship
     methods={[
@@ -167,7 +167,7 @@ const headings = [
       { name: '◌(QQ：1934****45)', amount: '3.00', date: '2019-12-30' },
       { name: 'Anonymous', amount: '20.00', date: '2022-04-06' }
     ]}
-  />
+  /> -->
 </PageLayout>
 
 <style>
