@@ -1,0 +1,100 @@
+---
+title: 'LeetCode 每日一题'
+publishDate: '2025-09-26'
+updatedDate: '2025-09-26'
+description: 'LeetCode 每日一题题解'
+tags:
+  - leetcode
+  - algorithm
+language: '中文'
+heroImage: { src: './leetcode.png', color: '#B4C6DA' }
+---
+
+## 611. 有效三角形的个数（2025.9.26）
+[原题链接](https://leetcode.cn/problems/valid-triangle-number/description/?envType=daily-question&envId=2025-09-26)
+### 排序 + 二分
+将边长度按从小到大排序
+
+因为需要三条边，无论如何都要枚举两条边a，b，不妨从小到大进行枚举（即`a <= b`）
+
+设第三条边为c，那么c需要满足：
+1. `a + b > c`
+2. `a + c > b`
+3. `b + c > a`
+
+在枚举c的过程中，为了避免重复，c必须满足`c >= b`
+
+故上述条件简化为：
+1. `a <= b <= c`
+2. `a + b > c`
+
+设a，b对应的下标分别为i，j，那么c的下标范围是：
+
+`[l, r] = [j + 1, lower_bound(nums.begin() + j + 1, nums.end(), a + b)]`
+，如果`r < l`，则没有与a，b对应的c存在
+code：
+```c++
+class Solution {
+public:
+    int triangleNumber(vector<int>& nums) {
+        // 枚举a, b
+        // c: a + b > c, a + c > b, b + c > a
+        // -> c < a + b && c > b - a && c > a - b
+        sort(nums.begin(), nums.end());
+        int ans = 0;
+        for (int i = 0; i < nums.size(); i++) {
+            for (int j = i + 1; j < nums.size(); j++) {
+                int k = j + 1;
+                int start = max(nums[j] - nums[i], nums[i] - nums[j]);
+                int end = nums[i] + nums[j];
+                auto l = upper_bound(nums.begin() + k, nums.end(), start);
+                auto r = lower_bound(nums.begin() + k, nums.end(), end);
+                if (r - l < 0) continue;
+                ans += (r - l);
+            }
+        }
+        if (ans < 0) ans = 0;
+        return ans;
+    }
+};
+```
+时间复杂度: $O(n^2logn)$
+### 排序 + 双指针
+二分的代码不难发现一个规律：枚举a，b后，寻找c时，只需要找到满足`c < a + b`的最大的c
+
+换句话说，对于前一个b，有`c < a + b`，对于下一个b，也有可能有`c < a + b`
+
+因此，我们只需要维护c所在区间的最大值下标
+
+条件是：只要`c < a + b`，就让c的下标右移
+
+c所在区间的最小值下标一定是b的下标+1
+
+于是可以采用双指针，在枚举b的同时，维护c当前可能的最大值下标
+
+code:
+```c++
+class Solution {
+public:
+    int triangleNumber(vector<int>& nums) {
+        // 枚举a, b
+        // c: a + b > c
+        // a <= b <= c
+        sort(nums.begin(), nums.end());
+        int ans = 0;
+        for (int i = 0; i < nums.size(); i++) {
+            for (int j = i + 1, k = j + 1; j < nums.size(); j++) {
+                // k是c合法范围内的最大值下标
+                k = max(k, j + 1);
+                int end = nums[i] + nums[j];
+                while (k < nums.size() && nums[k] < end) {
+                    k++;
+                }
+                ans += max(0, k - j - 1);
+            }
+        }
+        return ans;
+    }
+};
+```
+时间复杂度：$O(n^2)$
