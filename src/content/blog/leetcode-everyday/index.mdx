@@ -1,7 +1,7 @@
 ---
 title: 'LeetCode 每日一题'
 publishDate: '2025-09-26'
-updatedDate: '2025-09-26'
+updatedDate: '2025-09-27'
 description: 'LeetCode 每日一题题解'
 tags:
   - leetcode
@@ -9,6 +9,53 @@ tags:
 language: '中文'
 heroImage: { src: './leetcode.png', color: '#B4C6DA' }
 ---
+## 812. 最大三角形面积（2025.9.27）
+
+[原题链接](https://leetcode.cn/problems/largest-triangle-area/description/?envType=daily-question&envId=2025-09-27)
+
+枚举三个点A，B，C，设三条边的边长为a，b，c
+
+根据海伦公式（或者用余弦定理）得出：
+
+$S = \sqrt {p (p - a) (p - b) (p - c)}$
+
+其中，$p = \frac {a + b + c} {2}$
+
+注意，如果三个点x坐标或y坐标相同，三角形不合法
+
+code:
+
+```c++
+class Solution {
+public:
+    double getDistance(int x1, int y1, int x2, int y2) {
+        double d2 = pow(x1 - x2, 2) + pow(y1 - y2, 2);
+        return sqrt(d2);
+    }
+    double largestTriangleArea(vector<vector<int>>& points) {
+        int n = points.size();
+        double ans = INT_MIN;
+        for (int i = 0; i < n; i++) {
+            for (int j = i + 1; j < n; j++) {
+                for (int k = j + 1; k < n; k++) {
+                    auto &pi = points[i];
+                    auto &pj = points[j];
+                    auto &pk = points[k];
+                    if (pi[0] == pj[0] && pi[0] == pk[0]) continue;
+                    if (pi[1] == pj[1] && pi[1] == pk[1]) continue;
+                    double a = getDistance(pi[0], pi[1], pj[0], pj[1]);
+                    double b = getDistance(pi[0], pi[1], pk[0], pk[1]);
+                    double c = getDistance(pj[0], pj[1], pk[0], pk[1]);
+                    double sum = (a + b + c) / 2;
+                    ans = max(ans, sqrt(sum * (sum - a) * (sum - b) * (sum - c)));
+                }
+            }
+        }
+        return ans;
+    }
+};
+```
+时间复杂度： $O(n^3)$
 
 ## 611. 有效三角形的个数（2025.9.26）
 [原题链接](https://leetcode.cn/problems/valid-triangle-number/description/?envType=daily-question&envId=2025-09-26)
@@ -98,3 +145,154 @@ public:
 };
 ```
 时间复杂度：$O(n^2)$
+
+## 120. 三角形最小路径和（2025.9.25）
+
+[原题链接](https://leetcode.cn/problems/triangle/description/?envType=daily-question&envId=2025-09-25)
+
+三角形dp，从集合的角度分析：
+
+1. 状态表示：dp(i, j)：从triangle(0, 0)走到(i, j)的不同路径组成的集合
+
+2. 状态计算：集合中路径总和的最小值
+
+3. 状态转移：根据路径中的最后一次转移来划分集合
+
+   - 从(i - 1, j)走到(i, j)
+
+   - 从(i - 1, j - 1)走到(i, j)
+
+   - 转移公式：
+     $$
+     dp(i, j) =
+     \begin{cases}
+     triangle(i, j), & i = 0, j = 0 \\
+     dp(i - 1, j) + triangle(i, j), & i > 0, j = 0 \\
+     min(dp(i - 1, j), dp(i - 1, j - 1)) + triangle(i, j) & i > 0, j > 0 \\
+     \end{cases}
+     $$
+
+4. 优化：注意到在计算dp(i, ...)时，只需要dp(i - 1, ...)，所以可以将状态优化为1维数组，在计算状态时只保留上一层的状态dp(j)
+
+code:
+
+```c++
+class Solution {
+public:
+    int minimumTotal(vector<vector<int>>& triangle) {
+        int ans = INT_MAX;
+        vector<int> dp(triangle.size(), INT_MAX / 2);
+        dp[0] = triangle[0][0];
+        for (int i = 1; i < triangle.size(); i++) {
+            for (int j = triangle[i].size() - 1; j >= 0; j--) {
+                int old_dp = INT_MAX / 2;
+                if (j >= 1) old_dp = dp[j - 1];
+                dp[j] = min(dp[j], old_dp) + triangle[i][j];
+            }
+        }
+        for (int i = 0; i < dp.size(); i++) {
+            ans = min(ans, dp[i]);
+        }
+        return ans;
+    }
+};
+```
+时间复杂度： $O(n^2)$
+## 166. 分数到小数（2025.9.24）
+
+[原题链接](https://leetcode.cn/problems/fraction-to-recurring-decimal/description/?envType=daily-question&envId=2025-09-24)
+
+问题的难度在于如何判定循环小数的范围
+
+使用长除法观察示例$\frac {4} {333} = 0.\dot 0 \dot 1 \dot 2$：
+
+![166_1](./166_1.png)
+
+1. 小数点后第1位为0时，对应的被除数为40
+2. 小数点后第2位为1时，对应的被除数为400
+3. 小数点后第3位为2时，对应的被除数为670
+
+以此类推...， 小数点后第4位开始循环，对应的被除数为40
+
+不难发现，当小数点后开始循环时，对应的被除数一定已经出现过，可以使用哈希表来保存出现过的被除数，当一个被除数重复出现时，说明有循环小数并已经开始循环
+
+于是问题来到了如何判断哪一部分是循环小数，我们可以通过存储下面两个信息来解决：
+
+1. **小数点后第k位对应的被除数**
+2. **小数点后当前的总位数n**
+
+当被除数重复时，小数点后**第k位~第n位**就是循环小数所在的部分，前者可以用hashmap解决，后者可以开辟一个额外变量来记录
+
+由于题目中分子，分母的范围在[INT_MIN, INT_MAX]，所以在计算时最好使用long long，同时将小数点前和小数点后的计算分开，更加清晰
+
+code:
+
+```c++
+class Solution {
+public:
+    using i64 = long long;
+    void transform_quotient(string &ans, i64 quotient) {
+        string res("");
+        while (quotient > 0) {
+            int mod = quotient % 10;
+            quotient /= 10;
+            res += static_cast<char>(mod + '0');
+        }
+        if (res.size() == 0) return;
+        for (int i = res.size() - 1; i >= 0; i--) {
+            ans += res[i];
+        }
+    }
+    string fractionToDecimal(int numerator, int denominator) {
+        bool neg1 = numerator < 0;
+        bool neg2 = denominator < 0;
+        i64 numerator1 = abs(numerator * 1ll);
+        i64 denominator1 = abs(denominator * 1ll);
+        string ans("");
+        // 小数点前
+        if (numerator1 >= denominator1) {
+            while (numerator1 >= denominator1) {
+                i64 quotient = numerator1 / denominator1;
+                numerator1 %= denominator1;
+                transform_quotient(ans, quotient);
+            }
+        } else {
+            ans += '0';
+        }
+        // 小数点后
+        if (numerator1 != 0){
+            ans += '.';
+            int index = ans.size();
+            vector<int> cycle;
+            unordered_map<int, int> hash;
+            while (true) {
+                numerator1 *= 10;
+                if (hash.contains(numerator1)) {
+                    int st = hash[numerator1];
+                    string tmp = ans.substr(0, cycle[st]) + '(';
+                    for (int i = cycle[st]; i < ans.size(); i++) {
+                        tmp += ans[i];
+                    }
+                    tmp += ')';
+                    ans = tmp;
+                    break;
+                }
+                int quotient = numerator1 / denominator1;
+                cycle.push_back(index);
+                hash[numerator1] = cycle.size() - 1;
+                index++;
+                numerator1 %= denominator1;
+                ans += static_cast<char>(quotient + '0');
+                if (numerator1 == 0) {
+                    break;
+                }
+            }
+        }
+        if (neg1 != neg2 && numerator != 0) {
+            ans = "-" + ans;        
+        }
+        return ans;
+    }
+};
+```
+时间复杂度：设小数点后位数数量级为n，代码时间复杂度为$O(n)$
