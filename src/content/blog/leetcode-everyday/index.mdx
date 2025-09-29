@@ -1,7 +1,7 @@
 ---
 title: 'LeetCode 每日一题'
 publishDate: '2025-09-26'
-updatedDate: '2025-09-27'
+updatedDate: '2025-09-28'
 description: 'LeetCode 每日一题题解'
 tags:
   - leetcode
@@ -9,6 +9,292 @@ tags:
 language: '中文'
 heroImage: { src: './leetcode.png', color: '#B4C6DA' }
 ---
+## 1039. 多边形三角剖分的最低得分（2025.9.29）
+
+[原题链接](https://leetcode.cn/problems/minimum-score-triangulation-of-polygon/?envType=daily-question&envId=2025-09-29)
+
+该题的考点是区间动态规划，仍然从集合的角度来分析
+
+1. 状态表示：dp[l, r]表示由边(l, l + 1)， (l + 1, l + 2)，...，(r - 1, r)，(r, l)组成的多边形被剖分成不同的三角形集合
+
+2. 状态属性：集合中乘积和的最小值
+
+3. 状态转移：
+
+   - 首先考虑如何划分集合：
+
+     由于多边形最后最划分为多个三角形，那么多边形的边都是各个三角形的边，我们以(r, l)这条边隶属于哪个三角形来划分集合：
+
+     (r, l)的两个端点l, r, 只需要再加一个端点就可以组成三角形，设端点为k，则**k = l + 1, ... r - 1**
+
+   ​      于是由k和边(r, l)组成的三角形将原多边形划分为了三个部分：
+
+            1. [l, k]：以(l, l + 1),...,(k, l)边组成的新多边形
+            2. [k, r]：以(k, k + 1),...,(r, k)边组成的新多边形
+            3. k&(r, l)：以点k和边(r, l)组成的三角形
+
+   
+
+   - 于是状态转移公式：
+
+   $$
+   dp[l, r] = min(dp[l, k] + dp[k, r] + v[l] * v[r] * v[k])
+   $$
+
+   
+
+为什么选择(r, l)边作为三角形的一个边处理？
+
+因为状态表示中无法直接涉及到(r, l)，而直接使用(r, l)边的三角形又能够将集合划分为不同的部分来完成状态的转移
+
+code：
+
+```c++
+class Solution {
+public:
+    int minScoreTriangulation(vector<int>& values) {
+        constexpr int N = 50;
+        constexpr int INF = 0x3f3f3f3f;
+        vector<vector<int>> dp(N, vector<int>(N, INF));
+        int n = values.size();
+        for (int i = 0; i < n; i++) {
+            dp[i][i] = 0;
+            if (i + 1 < n) {
+                dp[i][i + 1] = 0;
+            }
+        }
+        for (int len = 2; len < n; len++) {
+            for (int l = 0; l < n; l++) {
+                int r = l + len;
+                if (r >= n) continue;
+                // k: l + 1 -> r - 1
+                for (int k = l + 1; k < r; k++) {
+                    dp[l][r] = min(dp[l][r], 
+                        dp[l][k] + dp[k][r] + values[l] * values[k] * values[r]);
+                }
+            }
+        }
+        return dp[0][n - 1];
+    }
+};
+```
+
+时间复杂度：$O(n^3)$
+## 2040. 两个有序数组的第K小乘积（2025.9.28）
+
+[原题链接](https://leetcode.cn/problems/kth-smallest-product-of-two-sorted-arrays/description/?envType=daily-question&envId=2025-09-28)
+
+直接枚举$n^2$显然是不现实的，注意到两个数组的乘积值域在$[-10^{10}, 10^{10}]$之间
+
+因此可以考虑对答案进行二分：
+
+对于一个数`mid`，设两个数组的乘积中小于`mid`的数有`cnt`个，那么：
+
+1. `cnt < k`，则`mid`有可能是答案，提高答案的下界
+2. `cnt >= k`，则`mid`不可能是答案，降低答案的上界
+
+于是问题转化为如何求两个数组的乘积中小于`mid`的个数
+
+### 二分
+
+由`nums1 × nums2 < mid`（`nums1`不为0），得：
+
+1. `nums2 < mid / nums1`（`nums1 > 0`）
+2. `nums2 > mid / nums1`（`nums1 < 0`）
+
+两个数组都是排好序的，所以在遍历第一个数组的时候，利用二分求出小于/大于目标数的数字有多少个即可
+
+code:
+
+```c++
+class Solution {
+public:
+    using i64 = long long;
+    bool check(vector<int>& nums1, vector<int> &nums2, i64 k, i64 num) {
+        // 找nums1 * nums2中，< num的个数cnt，与k比较
+        // cnt < k -> true
+        // cnt >= k -> false
+        i64 cnt = 0;
+        for (int n1 : nums1) {
+            if (n1 == 0) {
+                if (num > 0) cnt += nums2.size();
+                continue;
+            } 
+            i64 n2 = num / n1;
+            auto up_it = upper_bound(nums2.begin(), nums2.end(), n2);
+            auto low_it = lower_bound(nums2.begin(), nums2.end(), n2);
+            if (n1 > 0) {
+                int d1 = distance(nums2.begin(), low_it);
+                int d2 = distance(nums2.begin(), up_it);
+                if (num > 0 && num % n1 != 0) {
+                    cnt += max(0, d2);
+                } else {
+                    cnt += max(0, d1);
+                }
+            } else {
+                int d1 = distance(low_it, nums2.end());
+                int d2 = distance(up_it, nums2.end());
+                if (num > 0 && num % n1 != 0) {
+                    cnt += max(0, d1);
+                } else {
+                    cnt += max(0, d2);
+                }
+            }
+        }
+        return cnt < k;
+    }
+    long long kthSmallestProduct(vector<int>& nums1, vector<int>& nums2, long long k) {
+        i64 low = min({1ll * nums1.front() * nums2.front(), 1ll * nums1.front() * nums2.back(),
+                                1ll * nums1.back() * nums2.front(), 1ll * nums1.back() * nums2.back()});
+        i64 high = max({1ll * nums1.front() * nums2.front(), 1ll * nums1.front() * nums2.back(),
+                                1ll * nums1.back() * nums2.front(), 1ll * nums1.back() * nums2.back()});
+        i64 ans = 0;
+        while (low <= high) {
+            i64 mid = (low + high) >> 1;
+            if (check(nums1, nums2, k, mid)) {
+                low = mid + 1;
+                ans = mid;
+            } else {
+                high = mid - 1;
+            }
+        }
+        return ans;
+    }
+};
+```
+
+时间复杂度：$O(n (logn)(logk))$
+
+### 矩阵
+
+数组单增，负数正数同时存在，我们可以将分界线列出，假设：
+
+1. `nums1[0~pos1]`是负数，`nums1[pos1~n1]`是正数
+2. `nums2[0~pos2]`是负数，`nums1[pos1~n2]`是正数
+
+将`nums1[0~pos1]`与`nums2[0~pos2]`各个数分别相乘，观察性质(以两个数组中元素都大于0为例)：
+
+![image-20250929174608939](./2040_1.png)
+
+不难发现，左上角是最小值，随行增加，随列增加，右下角为最大值，之后求该矩阵中小于`mid`的个数，参考[leetcode-240](https://leetcode.cn/problems/search-a-2d-matrix-ii/description/?envType=study-plan-v2&envId=top-100-liked)
+
+具体做法是利用双指针，指向矩阵右上角的坐标，计算矩阵中对应的位置元素，如果该元素大于等于`mid`，向左移动，否则向下移动，直到找到最后一个小于`mid`的元素，移动的过程中，每找到一个小于`mid`的元素，就累加该行的个数
+
+code：
+
+```c++
+class Solution {
+public:
+    using i64 = long long;
+    bool check(vector<int>& nums1, vector<int> &nums2, i64 k, i64 num) {
+        // 找nums1 * nums2中，< num的个数cnt，与k比较
+        // cnt < k -> true
+        // cnt >= k -> false
+        i64 cnt = 0;
+        for (int i = 0, j = pos2; i <= pos1 && j >= 0;) {
+            if (1ll * nums1[i] * nums2[j] >= num) {
+                i++;
+            }
+            else {
+                cnt += (pos1 - i + 1);
+                j--;
+            }
+        }
+        for (int i = 0, j = pos2 + 1; i <= pos1 && j < nums2.size();) {
+            if (1ll * nums1[i] * nums2[j] >= num) {
+                j++;
+            } else {
+                cnt += (nums2.size() - j);
+                i++;
+            }
+        }
+        for (int i = pos1 + 1, j = 0; i < nums1.size() && j <= pos2;) {
+            if (1ll * nums1[i] * nums2[j] >= num) {
+                i++;
+            } else {
+                cnt += (nums1.size() - i);
+                j++;
+            }
+        }
+        for (int i = pos1 + 1, j = nums2.size() - 1; i < nums1.size() && j > pos2;) {
+            if (1ll * nums1[i] * nums2[j] >= num) {
+                j--;
+            } else {
+                cnt += (j - pos2);
+                i++;
+            }
+        }
+        return cnt < k;
+    }
+    long long kthSmallestProduct(vector<int>& nums1, vector<int>& nums2, long long k) {
+        i64 low = min({1ll * nums1.front() * nums2.front(), 1ll * nums1.front() * nums2.back(),
+                                1ll * nums1.back() * nums2.front(), 1ll * nums1.back() * nums2.back()});
+        i64 high = max({1ll * nums1.front() * nums2.front(), 1ll * nums1.front() * nums2.back(),
+                                1ll * nums1.back() * nums2.front(), 1ll * nums1.back() * nums2.back()});
+        i64 ans = 0;
+        for (int i = 0; i < nums1.size(); i++) {
+            if (nums1[i] < 0) pos1 = i;            
+        }
+        for (int i = 0; i < nums2.size(); i++) {
+            if (nums2[i] < 0) pos2 = i;            
+        }
+        while (low <= high) {
+            i64 mid = (low + high) >> 1;
+            if (check(nums1, nums2, k, mid)) {
+                low = mid + 1;
+                ans = mid;
+            } else {
+                high = mid - 1;
+            }
+        }
+        return ans;
+    }
+private:
+    int pos1{-1};
+    int pos2{-1};
+};
+```
+
+时间复杂度：$O(nlogk)$
+
+## 976. 三角形的最大周长（2025.9.28）
+
+[原题链接](https://leetcode.cn/problems/largest-perimeter-triangle/description/?envType=daily-question&envId=2025-09-28)
+
+枚举三条边a，b，c，三角形三边需要满足：
+1. a + b > c
+2. a + c > b
+3. b + c > a
+
+如果按边大小排序，设c >= b >= a，能简化为一个条件：
+1. a + b > c
+
+将边从大到小排序，在枚举一个最长边nums[i] = c时，能使得三角形周长最大的合法集合只能为nums[i], nums[i + 1], nums[i + 2]
+
+1. 如果nums[i], nums[i + 1], nums[i + 2]合法，则三条边组成的三角形周长最大
+2. 如果不合法，那么以nums[i] = c作为最长边将不能和nums[i + 3]及之后的边组成三角形
+
+code: 
+```c++
+class Solution {
+public:
+    int largestPerimeter(vector<int>& nums) {
+        sort(nums.begin(), nums.end(), greater<>());
+        int ans = 0;
+        for (int i = 2; i < nums.size(); i++) {
+            // a <= b <= c
+            int a = nums[i], b = nums[i - 1], c = nums[i - 2];
+            if (c < a + b) {
+                ans = a + b + c;
+                break;
+            }
+        }
+        return ans;
+    }
+};
+```
+时间复杂度： $O(n)$
+
 ## 812. 最大三角形面积（2025.9.27）
 
 [原题链接](https://leetcode.cn/problems/largest-triangle-area/description/?envType=daily-question&envId=2025-09-27)
