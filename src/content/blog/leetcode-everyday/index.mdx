@@ -1,7 +1,7 @@
 ---
 title: 'LeetCode 每日一题'
 publishDate: '2025-09-26'
-updatedDate: '2025-09-28'
+updatedDate: '2025-10-06'
 description: 'LeetCode 每日一题题解'
 tags:
   - leetcode
@@ -9,6 +9,214 @@ tags:
 language: '中文'
 heroImage: { src: './leetcode.png', color: '#B4C6DA' }
 ---
+## 417. 太平洋大西洋水流问题（2025.10.5）
+
+[原题链接](https://leetcode.cn/problems/pacific-atlantic-water-flow/description/)
+
+可以把二维矩阵看做一个图，单元格抽象为点，设高度为$h$，针对两个相邻单元格$p_1$，$p_2$，其对应的高度为$h_1$，$h_2$，如果有$h_1 >= h2$，则从$p_1$向$p_2$连接一条边。
+
+题目要求出能够流向**PO**和**AO**的单元格，一种想法是在原先的二维矩阵上围上一圈结点，并设置这些结点的属性（标识不同的海洋），然后从每个结点开始BFS遍历，只要其能够同时到达拥有两种属性的结点，该结点就符合题意，时间复杂度为$O(V(V + E))$，其中，$V$是结点个数，$E$是边数，在本题中都是$10^4$数量级，用于通过题目显然不现实。
+
+可以反向思考，从**PO**和**AO**向单元格开始流，只需要翻转一下原先边的方向：
+
+1. 显然，第一行第一列是**PO**能够流向的结点，将这些结点塞入队列，进行一次BFS，就能知道有哪些结点可以流向**PO**
+2. 同理，最后一行最后一列是**AO**能流向的结点，同样一次BFS，能知道有哪些结点可以流向**AO**
+3. 对于上面求得的两个集合，做一个交集，就是既能流向**PO**，也能流向**AO**的结点
+
+code：
+
+```c++
+class Solution {
+public:
+    void bfs(queue<pair<int, int>> &q, vector<vector<int>>& heights, vector<vector<int>>& vis) {
+        int m = heights.size();
+        int n = heights[0].size();
+        while (!q.empty()) {
+            auto point = q.front();
+            q.pop();
+            int h = heights[point.first][point.second];
+            for (int i = 0; i < 4; i++) {
+                int nx = point.first + dx[i];
+                int ny = point.second + dy[i];
+                if (nx < 0 || nx >= m || ny < 0 || ny >= n || vis[nx][ny] == 1 || heights[nx][ny] < h)
+                    continue;
+                vis[nx][ny] = 1;
+                q.push({nx, ny});
+            }
+        }
+    }
+
+    vector<vector<int> > pacificAtlantic(vector<vector<int> > &heights) {
+        int m = heights.size();
+        int n = heights[0].size();
+        vector<vector<int>> pacific_vis(m, vector<int>(n, 0));
+        vector<vector<int>> altantic_vis(m, vector<int>(n, 0));
+        queue<pair<int, int>> q_pacific, q_altantic;
+        for (int i = 0; i < n; i++) {
+            pacific_vis[0][i] = 1;
+            q_pacific.push({0, i});
+            altantic_vis[m - 1][i] = 1;
+            q_altantic.push({m - 1, i});
+        }
+        for (int i = 0; i < m; i++) {
+            if (pacific_vis[i][0] == 0) {
+                pacific_vis[i][0] = 1;
+                q_pacific.push({i, 0});
+            }
+            if (altantic_vis[i][n - 1] == 0) {
+                altantic_vis[i][n - 1] = 1;
+                q_altantic.push({i, n - 1});
+            }
+        }
+        bfs(q_pacific, heights, pacific_vis);
+        bfs(q_altantic, heights, altantic_vis);
+        vector<vector<int>> ans;
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                if (pacific_vis[i][j] && altantic_vis[i][j]) {
+                    ans.push_back({i, j});
+                }
+            }
+        }
+        return ans;
+    }
+
+    constexpr static int dx[] = {-1, 1, 0, 0};
+    constexpr static int dy[] = {0, 0, 1, -1};
+};
+```
+
+时间复杂度：$O(V + E)$，其中，$V = mn$，$E = cV$（$c$是一个常数）
+
+
+## 11. 盛最多水的容器（2025.10.4）
+
+[原题链接](https://leetcode.cn/problems/container-with-most-water/description/?envType=daily-question&envId=2025-10-04)
+
+不妨先考虑只有两条线，那么根据短板效应，两条线中高度最短的那个决定了水的高度：
+
+![11_1](./11_1.png)
+
+考虑向中间插入一条线（长或短）：
+
+![11_2](./11_2.png)
+
+分析如下：
+
+考虑$l_1$，$l_2$中较短的那条线（假设是$l_1$），由于$l_2$在右端点，设在$l_1$和$l_2$之间的为$l_i$，则显然$l_1$与$l_i$组成的容器容量不会超过$l_1$与$l_2$组成的容器容量
+
+于是可以跳过中间这部分的计算，直接向右移动$l_1$
+
+同理，如果$l_2$较短，向左移动$l_2$，直到$l_1 >= l_2$
+
+每移动一次，就计算一次容量，并保存最大容量
+
+code：
+
+```c++
+class Solution {
+public:
+    int maxArea(vector<int>& height) {
+        int l = 0, r = static_cast<int>(height.size()) - 1;
+        int ans = 0;
+        while (l < r) {
+            ans = max(ans, min(height[l], height[r]) * (r - l));
+            if (height[l] < height[r]) {
+                l++;
+            } else {
+                r--;
+            }
+        }
+        return ans;
+    }
+};
+```
+
+时间复杂度：$O(n)$
+
+## 42. 接雨水
+
+[原题链接](https://leetcode.cn/problems/trapping-rain-water/description/)
+
+## 407. 接雨水 II（2025.10.3）
+
+[原题链接](https://leetcode.cn/problems/trapping-rain-water-ii/description/?envType=daily-question&envId=2025-10-03)
+
+该题不能向接雨水一样使用单调栈来做（不能遍历所有的行和列然后取能接雨水的最小值）
+
+但同样可以考虑木桶效应（因为最外面一圈格子不可能存下雨水），接雨水考虑的是一维中左右两端的木板，本题是二维，则考虑上下左右四端的木板。根据木桶效应，桶中能装多少水由最短的那块木板，那么应该从四端最短的木板找起，由于其是最短的木板，设其高度为$h$，那么：
+
+1. 如果与其相邻的格子是木板，不做处理
+2. 如果与其相邻的格子不是木板， 考虑其高度$hn$：
+   - 如果$hn >= h$，那么该格子保存不了雨水，并且由于其比木板更高，原先的木板就没用了，该格子会代替原木板变为高度为$hn$的木板。
+   - 如果$hn < h$，那么该格子能够保存$h - hn$单位的雨水，将这些雨水加入$ans$后，该格子不会能够接更多的雨水了，可以将其看做新的高度为$h$的木板，以此来维护新的木桶。
+
+可以使用最小堆来保存四周的木板高度，然后从最低的木板开始遍历，直到堆为空，$ans$中保存的是收集雨水的总和
+
+code：
+
+```c++
+class Solution {
+public:
+    struct Point {
+        int x;
+        int y;
+        int h;
+        friend bool operator > (const Point& lhs, const Point& rhs) {
+            return lhs.h > rhs.h;
+        }
+    };
+    int trapRainWater(vector<vector<int>>& heightMap) {
+        int m = heightMap.size();
+        int n = heightMap[0].size();
+        if (m < 3 || n < 3) return 0;
+        vector<int> visited((m + 1) * (n + 1), 0);
+        priority_queue<Point, vector<Point>, greater<>> heap;
+        auto arrMap = [n](int i, int j) -> int {
+            return i * n + j;
+        };
+        heap.push({0, 0, heightMap[0][0]}); visited[arrMap(0, 0)] = 1;
+        heap.push({0, n - 1, heightMap[0][n - 1]}); visited[arrMap(0, n - 1)] = 1;
+        heap.push({m - 1, 0, heightMap[m - 1][0]}); visited[arrMap(m - 1, 0)] = 1;
+        heap.push({m - 1, n - 1, heightMap[m - 1][n - 1]}); visited[arrMap(m - 1, n - 1)] = 1;
+        for (int i = 1; i < n - 1; i++) {
+            heap.push({0, i, heightMap[0][i]}); visited[arrMap(0, i)] = 1;
+            heap.push({m - 1, i, heightMap[m - 1][i]}); visited[arrMap(m - 1, i)] = 1;
+        }
+        for (int j = 1; j < m - 1; j++) {
+            heap.push({j, 0, heightMap[j][0]}); visited[arrMap(j, 0)] = 1;
+            heap.push({j, n - 1, heightMap[j][n - 1]}); visited[arrMap(j, n - 1)] = 1;
+        }
+        int remain = m * n - (2 * m + 2 * n - 4);
+        int ans = 0;
+        while (remain > 0) {
+            auto p = heap.top();
+            heap.pop();
+            for (int i = 0; i < 4; i++) {
+                int nx = p.x + dx[i], ny = p.y + dy[i];
+                if (nx >= 0 && nx < m && ny >= 0 && ny < n) {
+                    if (visited[arrMap(nx, ny)]) continue;
+                    int h = heightMap[nx][ny];
+                    visited[arrMap(nx, ny)] = 1;
+                    remain--;
+                    if (h >= p.h) {
+                        heap.push({nx, ny, h});
+                    } else {
+                        ans += p.h - h;
+                        heap.push({nx, ny, p.h});
+                    }
+                }
+            }
+        }
+        return ans;
+    }
+    constexpr static int dx[] = {0, 0, 1, -1};
+    constexpr static int dy[] = {1, -1, 0, 0};
+};
+```
+
+时间复杂度：二维矩阵$m$行$n$列，时间复杂度为$O(mnlog(mn))$
+
 ## 1039. 多边形三角剖分的最低得分（2025.9.29）
 
 [原题链接](https://leetcode.cn/problems/minimum-score-triangulation-of-polygon/?envType=daily-question&envId=2025-09-29)
