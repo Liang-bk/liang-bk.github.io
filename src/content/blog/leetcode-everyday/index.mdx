@@ -1,7 +1,7 @@
 ---
 title: 'LeetCode 每日一题'
 publishDate: '2025-09-26'
-updatedDate: '2025-10-06'
+updatedDate: '2025-10-07'
 description: 'LeetCode 每日一题题解'
 tags:
   - leetcode
@@ -9,6 +9,133 @@ tags:
 language: '中文'
 heroImage: { src: './leetcode.png', color: '#B4C6DA' }
 ---
+
+## 1488. 避免洪水泛滥（2025.10.7）
+
+[原题链接](https://leetcode.cn/problems/avoid-flood-in-the-city/description/?envType=daily-question&envId=2025-10-07)
+
+1. 从左到右遍历抽干日， 对于一个**抽干**日，其可能有多个湖泊进行选择，将这些可选择的湖泊（第i个可选择的湖泊）上次下雨和该次下雨时间记为$[last_i, now_i]$，按照贪心的思想，应该将其按照$now_i$从小到大进行排序，即越早可能**泛洪**的湖泊应该更早被抽水，$now_i$更大的湖泊可以尽可能的交给后面的抽干日去处理
+
+但是**固定抽干日**，排序该日可选择的不同湖泊在代码实现上比较困难，于是可以考虑换一个角度，**固定湖泊**，找寻可选择的抽干日：
+
+2. 从左到右遍历湖泊时，假设湖泊$j$会发生洪水，根据其上一次的下雨时间$last$和本次下雨时间$now$，找寻$(last, now)$内的抽干日，假设这些抽干日有$cnt$个，将其从小到大进行排列，根据贪心思想，应该选择距离$last$最近的抽干日，而越晚的抽干日，灵活性越大，可以用于抽干更晚装满的湖，即越晚的抽水日应该留到后面给$now$更大的湖泊使用
+
+以上两种贪心思想等价，但是第二种在代码实现上更简单：利用哈希表记录每个湖泊上次的下雨时间，并将所有的抽干日存储到set中，然后遍历下雨日，在set中找到第一个$> last$的抽干日，并判断其是否合法即可
+
+code：
+
+```c++
+class Solution {
+public:
+    vector<int> avoidFlood(vector<int>& rains) {
+        int n = rains.size();
+        vector<int> ans(n, -1);
+        unordered_map<int, int> last_rain;
+        set<int> dry_days;
+        for (int i = 0; i < n; i++) {
+            if (rains[i] == 0) {
+                dry_days.insert(i);
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            if (rains[i] > 0) {
+                if (last_rain.contains(rains[i])) {
+                    int j = last_rain[rains[i]];
+                    // > j的第一个, 要用set的upper_bound方法, algorithm的方法会退化为线性时间
+                    auto it = dry_days.upper_bound(j);
+                    // 必须在第i天之前
+                    if (it == dry_days.end()) return {};
+                    if ((*it) >= i) return {};
+                    ans[(*it)] = rains[i];
+                    dry_days.erase(it);
+                }
+                last_rain[rains[i]] = i;
+            }
+        }
+        // 如果抽干日比下雨日更多，选择湖泊1
+        for (int i = 0; i < n; i++) {
+            if (rains[i] == 0 && ans[i] == -1) {
+                ans[i] = 1;
+            }
+        }
+        return ans;
+    }
+};
+```
+
+时间复杂度：$O(nlogn)$
+
+## 778. 水位上升的泳池中游泳（2025.10.6）
+
+[原题链接](https://leetcode.cn/problems/swim-in-rising-water/description/?envType=daily-question&envId=2025-10-06)
+
+题目提到在方格之间移动不花费时间，求最小的时间t，使得能从(0, 0)移动到(n-1, n-1)
+
+答案t一定有上下界（因为格子中的数值有限），下界为0，上界为$n^2 - 1$，那么可以考虑二分答案：
+
+1. 二分答案t
+2. 判断水位为t时，能否从(0, 0)到(n - 1, n - 1)
+   - 如果可以，记录答案，减小上界
+   - 否则，增大下界
+
+从(0, 0)进行BFS，根据当前水位，可以判断能否到达(n-1, n-1)
+
+code：
+
+```c++
+class Solution {
+public:
+    bool bfs(queue<pair<int, int>> &q, vector<vector<int>> &grid, int t) {
+        int m = grid.size();
+        int n = grid[0].size();
+        vector<vector<int>> vis(m, vector<int>(n, 0));
+        if (grid[0][0] > t) return false;
+        q.push({0, 0});
+        vis[0][0] = 1;
+        while (!q.empty()) {
+            auto point = q.front();
+            q.pop();
+            int h = max(t, grid[point.first][point.second]);
+            for (int i = 0; i < 4; i++) {
+                int nx = point.first + dx[i];
+                int ny = point.second + dy[i];
+                if (nx < 0 || nx >= m || ny < 0 || ny >= n || vis[nx][ny] != 0 || h < grid[nx][ny])
+                    continue;
+                vis[nx][ny] = 1;
+                q.push({nx, ny});
+            }
+        }
+        return vis[m - 1][n - 1] == 1;
+    }
+    int swimInWater(vector<vector<int>>& grid) {
+        int n = grid.size();
+        queue<pair<int, int>> q;
+        int l = INT_MAX, r = INT_MIN;
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                l = min(l, grid[i][j]);
+                r = max(r, grid[i][j]);
+            }
+        }
+        int ans = -1;
+        while (l <= r) {
+            int mid = l + (r - l) / 2;
+            if (bfs(q, grid, mid)) {
+                r = mid - 1;
+                ans = mid;
+            } else {
+                l = mid + 1;
+            }
+        }
+        return ans;
+    }
+    constexpr static int dx[] = {0, 0, 1, -1};
+    constexpr static int dy[] = {1, -1, 0, 0};
+};
+```
+
+时间复杂度：$O(n^2log(n^2))$
+
 ## 417. 太平洋大西洋水流问题（2025.10.5）
 
 [原题链接](https://leetcode.cn/problems/pacific-atlantic-water-flow/description/)
