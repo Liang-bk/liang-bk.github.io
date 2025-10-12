@@ -9,6 +9,84 @@ tags:
 language: '中文'
 heroImage: { src: './leetcode.png', color: '#B4C6DA' }
 ---
+## 3186. 施咒的最大总伤害（2025.10.11）
+
+[原题链接](https://leetcode.cn/problems/maximum-total-damage-with-spell-casting/?envType=daily-question&envId=2025-10-11)
+
+先排序，很明显，当两个咒语的power值相同时，那两个咒语一定要一起选，所以合并power值相同的咒语**（以[power[i], k * power[i]]的方式，其中k代表有k个power值相同的咒语）**
+
+处理完毕后，序列中所有咒语的power值各不相同，然后按照power值排序，设最后得到的序列为**a**，题目要求的是某个序列power值和的最大值，可以从动态规划集合论的角度来思考：
+
+1. 状态表示：**dp[i]表示以a[i]的power值为最大power值的子序列集合**（即该集合一定选择a[i]对应的咒语，并且由于a序列中power值各不相同且从小到大排序，所以dp[i]对应的集合各不相同）
+
+2. 状态属性：集合中的最大值
+
+3. 状态转移：
+
+   - 首先考虑如何划分集合，集合的相同点是子序列中最大的power值是a[i]的power值，则可以根据第二大的power值对集合进行划分，于是集合可以被划分为：
+
+     1. 以a[0]的power值为最大的power值的子序列集合
+
+     2. 以a[1]的power值为最大的power值的子序列集合
+
+        ...
+
+     3. 以a[j]的power值为最大的power值的子序列集合
+
+     其中$j < i, a[j].power < a[i].power - 2$
+
+   - 转移公式：
+     $$
+     dp(i) = max(dp(j)) + a[i].sumpower \\ 
+     (j < i, a[j].power < a[i].power - 2)
+     $$
+
+   
+
+4. 优化：由于a序列是排过序的，因此在遍历a[i]时，只需要一个下标指向$max(dp(j))$，随着i的移动，判断$a[j].power < a[i].power - 2$后更新$max(dp(j))$，就能实现一次遍历求出答案
+
+code：
+
+```c++
+class Solution {
+public:
+    using i64 = long long;
+    long long maximumTotalDamage(vector<int>& power) {
+        int n = power.size();
+        unordered_map<int, i64> hashmap;
+        for (int i = 0; i < power.size(); i++) {
+            hashmap[power[i]] += power[i];
+        }
+        vector<int> keys;
+        for (auto& [key, _] : hashmap) {
+            keys.push_back(key);
+        }
+        sort(keys.begin(), keys.end());
+        // dp[i]: 表示用power值为keys[i]的咒语集合
+        // 集合最大值
+        // max(<(keys[i] - 2)) + map(keys[i])
+        int m = keys.size();
+        vector<i64> dp(m + 1, 0);
+        dp[0] = hashmap[keys[0]];
+        i64 before = 0;
+        for (int i = 1, j = 0; i < m; i++) {
+            while (j < i && keys[j] < keys[i] - 2) {
+                before = max(before, dp[j]);
+                j++;
+            }
+            dp[i] = hashmap[keys[i]] + before;
+        }
+        i64 res = 0;
+        for (int i = 0; i < m; i++) {
+            res = max(res, dp[i]);
+        }
+        return res;
+    }
+};
+```
+
+时间复杂度：$O(nlogn)$
+
 
 ## 1488. 避免洪水泛滥（2025.10.7）
 
@@ -343,6 +421,59 @@ public:
 ```
 
 时间复杂度：二维矩阵$m$行$n$列，时间复杂度为$O(mnlog(mn))$
+
+## 1546. 和为目标值且不重叠的非空子数组的最大值（2025.10.2）
+
+[原题链接](https://leetcode.cn/problems/maximum-number-of-non-overlapping-subarrays-with-sum-equals-target/description/)
+
+子数组是连续的，所以题目要求连续子序列和为target的最大数量（连续子序列相互不重叠），于是可以抽象为以下模型（假设一条线代表从i到j的子序列和为target）：
+
+![1546](./1546.png)
+
+该模型即求出最多的不相交的线段数量[线段覆盖](https://leetcode.cn/problems/maximum-number-of-non-overlapping-subarrays-with-sum-equals-target/description/)
+
+根据贪心算法，将所有的线段以[start, end]的形式表示，根据end从小到大进行排序，然后依次遍历选择，即哪个线段在前就先选哪个
+
+对应的本题，从头遍历nums数组，对于一个数nums[i]，如果能找到一个start，使得[start, i]的和为target，就将序列数+1，**问题的关键在于如何求start坐标**
+
+可以使用前缀和，当遍历nums时，同时记录前缀和sums，如果存在start，则sums[i] - sums[start - 1] = target
+
+即sums[start - 1] = sums[i] - target
+
+将前缀和用哈希表保存即可快速搜寻sums[start - 1]
+
+code：
+
+```c++
+class Solution {
+public:
+    int maxNonOverlapping(vector<int>& nums, int target) {
+        int ans = 0;
+        int i = 1;
+        int n = nums.size();
+        vector<int> sum(n + 1, 0);
+        while (i <= n) {
+            unordered_set<int> s;
+            s.insert(0);
+            while (i <= n) {
+                sum[i] = sum[i - 1] + nums[i - 1];
+                if (s.contains(sum[i] - target)) {
+                    ans++;
+                    break;
+                }
+                s.insert(sum[i]);
+                i += 1;
+            }
+            if (i > n) break;
+            sum[i] = 0;
+            i = i + 1;
+        }
+        return ans;
+    }
+};
+```
+
+时间复杂度：$O(n)$
 
 ## 1039. 多边形三角剖分的最低得分（2025.9.29）
 
