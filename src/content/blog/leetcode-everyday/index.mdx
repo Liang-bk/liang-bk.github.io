@@ -1,7 +1,7 @@
 ---
 title: 'LeetCode 每日一题'
 publishDate: '2025-09-26'
-updatedDate: '2025-10-07'
+updatedDate: '2025-10-17'
 description: 'LeetCode 每日一题题解'
 tags:
   - leetcode
@@ -9,6 +9,61 @@ tags:
 language: '中文'
 heroImage: { src: './leetcode.png', color: '#B4C6DA' }
 ---
+## 2598. 执行操作后的最大MEX（2025.10.16）
+
+[原题链接](https://leetcode.cn/problems/smallest-missing-non-negative-integer-after-operations/description/?envType=daily-question&envId=2025-10-16)
+
+设nums.length为n，则MEX最大只能为n（当nums = [0, 1, 2, ..., n-1]时）
+
+数组中的每个元素都可以任意加上/减去value（value > 0），考虑每个元素对value的正模值x：
+$$
+nums[i] \equiv x \pmod{value}
+$$
+如果多个元素的正模值相同，则明显可以将这些元素转化为：[x, x + value, ..., x + k * value]，使得改变后的数组尽可能被不同的数字填充
+
+因此，可以统计不同正模值在原数组中出现的频数，然后将其转化为上述形式（只记录在n以内的数字即可），然后遍历0~n，如果某个数不能由原数组的数转化而来，则该数即是答案
+
+code:
+
+```c++
+class Solution {
+public:
+    int findSmallestInteger(vector<int>& nums, int value) {
+        int n = nums.size();
+        if (value == 1) {
+            return n;
+        }
+        unordered_map<int, int> frequency;
+        vector<int> mex(n + 1, 0);
+        for (int i = 0; i < n; i++) {
+            int m = nums[i] % value;
+            if (m < 0) {
+                m += value;
+            }
+            frequency[m]++;
+        }
+        for (auto& [k, v] : frequency) {
+            int cnt = v;
+            int i = k;
+            while (cnt > 0) {
+                if (i <= n)
+                    mex[i] = 1;
+                i += value;
+                cnt -= 1;
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            if (mex[i] == 0) {
+                return i;
+            }
+        }
+        return n;
+    }
+};
+```
+
+时间复杂度：$O(n)$
+
 ## 3186. 施咒的最大总伤害（2025.10.11）
 
 [原题链接](https://leetcode.cn/problems/maximum-total-damage-with-spell-casting/?envType=daily-question&envId=2025-10-11)
@@ -37,10 +92,12 @@ heroImage: { src: './leetcode.png', color: '#B4C6DA' }
 
    - 转移公式：
      $$
-     dp(i) = max(dp(j)) + a[i].sumpower \\ 
-     (j < i, a[j].power < a[i].power - 2)
+     dp(i) = max(dp(j)) + a[i].sumpower
      $$
-
+    其中：
+    $$
+    j < i, a[j].power < a[i].power - 2
+    $$
    
 
 4. 优化：由于a序列是排过序的，因此在遍历a[i]时，只需要一个下标指向$max(dp(j))$，随着i的移动，判断$a[j].power < a[i].power - 2$后更新$max(dp(j))$，就能实现一次遍历求出答案
@@ -474,6 +531,139 @@ public:
 ```
 
 时间复杂度：$O(n)$
+
+## 1948. 删除系统中的重复文件夹（2025.9.30）
+
+[原题链接](https://leetcode.cn/problems/delete-duplicate-folders-in-system/description/?envType=daily-question&envId=2025-09-30)
+
+很容易想到使用Trie结构保存结点，再利用哈希表存储每个结点的子树结构，在遍历树时，如果不同节点有相同的子树结构，就将这些结点删去
+
+问题在于如何用哈希表存储每个结点的子树结构：
+
+一个方法是将一个结点的子树映射为相同的字符串，这需要做到
+
+1. 字符串需要包含子树所有节点的**文件夹名**
+2. 字符串要能够表达结点的**父子关系**
+
+考虑针对某一个结点，对其子节点的遍历过程，将向下**递**的动作用一个非字母字符表示，向上**归**的动作用另一个非字母字符表示，就可以描述一颗树的形状，比如x结点有两个叶子节点y，z，可以表示为x(y)(z)
+
+一般的，定义如下括号表达式：
+
+- 对于叶子结点，设其文件名为S，则其括号表达式为S
+
+- 对于任意子树x，设x的儿子为y1，y2，...，则子树x的括号表达式为：
+
+  `x文件夹名 + (子树y1的表达式) + (子树y2的表达式) + ...`
+
+- 为了括号表达式的唯一性，在求出y1，y2，...的表达式后，对这些表达式进行排序再拼接，就可以避免下面这种情况（子树相同但表达式不同）
+
+  ```shell
+  	  x        x
+     / \      / \
+    y   z    z   y
+  ```
+
+代码流程：
+
+1. 构建字典树
+
+2. 生成每个结点的括号表达式：
+
+   先将每个结点的子树表达式拼接（即`(子树y1的表达式) + (子树y2的表达式) + ...`），记录到哈希表中
+
+   - 如果该表达式是首次生成，将表达式和对应的子树根节点x保存到哈希表中
+   - 否则文件夹出现重复，把当前根节点x和哈希表中记录的根节点都标记为删除
+
+3. DFS遍历Trie树，仅遍历未被删除的结点，同时记录路径上的文件夹名
+
+code:
+
+```c++
+class Solution {
+public:
+    struct Node {
+        Node() :name(""), deleted(false) {}
+        Node(string ne) : name(ne), deleted(false) {}
+
+        ~Node() {
+            clear();
+        }
+        void clear() {
+            for (auto it = children.begin(); it != children.end(); it++) {
+                if (it->second) {
+                    it->second->clear();
+                    delete it->second;
+                }
+                it->second = nullptr;
+            }
+        }
+        string name;
+        unordered_map<string, Node*> children;
+        bool deleted;
+    };
+    void constructTrie(Node *node, vector<string> &path) {
+        for (string name : path) {
+            if (!node->children.contains(name)) {
+                node->children[name] = new Node(name);
+            }
+            node = node->children[name];
+        }
+    }
+    string generateHash(unordered_map<string, Node*> &hash, Node *root) {
+        if (root == nullptr) {
+            return "";
+        }
+        if (root->children.empty()) {
+            return root->name;
+        }
+        string res("");
+        vector<string> sub_hash;
+        for (auto&& child : root->children) {
+            sub_hash.push_back("(" + generateHash(hash, child.second) + ")");
+        }
+        sort(sub_hash.begin(), sub_hash.end());
+        for (auto&& sub_hash : sub_hash) {
+            res += sub_hash;
+        }
+        // compare
+        if (hash.contains(res)) {
+            root->deleted = true;
+            hash[res]->deleted = true;
+        } else {
+            hash[res] = root;
+        }
+        res = root->name + res;
+        return res;
+    }
+    void dfs(Node* root, vector<string> &path, vector<vector<string>> &res) {
+        if (root == nullptr || root->deleted) {
+            return;
+        }
+        path.push_back(root->name);
+        res.push_back(path);
+        for (auto&& child : root->children) {
+            if (!child.second->deleted)
+                dfs(child.second, path, res);
+        }
+        path.pop_back();
+    }
+    vector<vector<string>> deleteDuplicateFolder(vector<vector<string>>& paths) {
+        Node* node = new Node("/");
+        for (auto &&path : paths) {
+            constructTrie(node, path);
+        }
+        unordered_map<string, Node*> hash;
+        generateHash(hash, node);
+        vector<vector<string>> res;
+        vector<string> path;
+        for (auto&& child : node->children) {
+            dfs(child.second, path, res);
+        }
+        delete node;
+        return res;
+    }
+};
+```
 
 ## 1039. 多边形三角剖分的最低得分（2025.9.29）
 
