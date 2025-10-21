@@ -1,7 +1,7 @@
 ---
 title: 'LeetCode 每日一题'
 publishDate: '2025-09-26'
-updatedDate: '2025-10-17'
+updatedDate: '2025-10-21'
 description: 'LeetCode 每日一题题解'
 tags:
   - leetcode
@@ -9,6 +9,252 @@ tags:
 language: '中文'
 heroImage: { src: './leetcode.png', color: '#B4C6DA' }
 ---
+
+## 3347. 执行操作后元素的最高频率 II（2025.10.21）
+
+[原题链接](https://leetcode.cn/problems/maximum-frequency-of-an-element-after-performing-operations-ii/description/)
+
+本题相对3346，扩大了$[s, e]$的范围，这使得无法暴力枚举来求出答案，但通过观察可以发现，$[s, e]$中并不是所有的数字都值得被枚举，这一点可以通过**差分**来证明：
+
+对于每一个$nums[i]$，其能够转为的数字在$[nums[i]-k, nums[i]+k]$之间，考虑一个数轴，这表示在$[nums[i]-k, nums[i]+k]$这段数字上+1（代表这段数字可以由$num[i]$操作后得到），如下图所示：
+
+![](./3347_1.png)
+
+从图中可以看出，只需要枚举$num[i], nums[i]-k, nums[i]+k$，枚举区间上的其他数字，其$sum$值不会超过枚举这三个数字得到的$sum$值，因此可以缩减枚举的区间，从$[s, e]$到所有的$nums[i], nums[i]-k, nums[i]+k$，同样使用滑动窗口来遍历原数组，做法和3346相同
+
+code：
+
+```c++
+class Solution {
+public:
+    using i64 = long long;
+    int maxFrequency(vector<int>& nums, int k, int numOperations) {
+        sort(nums.begin(), nums.end());
+        using PII = pair<int, int>;
+        vector<PII> u_nums;
+        int num = nums[0], cnt = 1;
+        int n = nums.size();
+        for (int i = 1; i < n; i++) {
+            if (nums[i] != num) {
+                u_nums.push_back({num, cnt});
+                num = nums[i];
+                cnt = 1;
+            } else {
+                cnt++;
+            }
+        }
+        u_nums.push_back({num, cnt});
+        vector<int> candidate;
+        n = u_nums.size();
+        for (int i = 0; i < n; i++) {
+            candidate.push_back(u_nums[i].first - k);
+            candidate.push_back(u_nums[i].first);
+            candidate.push_back(u_nums[i].first + k);
+        }
+        sort(candidate.begin(), candidate.end());
+        n = candidate.size();
+        queue<int> q;
+        int sum = 0, ans = 0;
+        for (int s = 0, i = 0, j = 0; s < n; s++) {
+            i64 l = 1ll * candidate[s] - k, r = 1ll * candidate[s] + k;
+            while (!q.empty() && u_nums[q.front()].first < l) {
+                int index = q.front();
+                q.pop();
+                sum -= u_nums[index].second;
+            }
+            while (j < u_nums.size() && u_nums[j].first <= r) {
+                q.push(j);
+                sum += u_nums[j].second;
+                j++;
+            }
+            if (i < u_nums.size() && candidate[s] == u_nums[i].first) {
+                int op = min(sum - u_nums[i].second, numOperations);
+                ans = max(ans, op + u_nums[i].second);
+                i++;
+            } else {
+                int op = min(sum, numOperations);
+                ans = max(ans, op);
+            }
+        }
+        return ans;
+    }
+};
+```
+
+时间复杂度：$O(nlogn)$，$n$是数组长度
+
+## 3346. 执行操作后元素的最高频率 I（2025.10.21）
+
+[原题链接](https://leetcode.cn/problems/maximum-frequency-of-an-element-after-performing-operations-i/?envType=daily-question&envId=2025-10-21)
+
+题目中声明所有数字最多被操作一次，考虑到数据量较小，频率最高的数字的范围只可能在$[s, e] = [min(nums), max(nums)]$，这不难证明，如果操作能使得频率最高的超出这个范围设为$x$，那么在范围内一定存在一个数$y$，使得$y$的频率和$x$相等，题目只要求求出最大的频率，那么这个范围自然是越小越好
+
+那么可以考虑枚举$[s, e]$当中的每一个数$t$，则能够通过操作变为$t$的数字范围就在$[t - k, t + k]$，只需要去原数组中查找这个范围的数有多少个即可
+
+1. 对原数组排序
+2. 对原数组去重，并统计相同数字的数量
+3. 在遍历$[s, e]$中，使用滑动窗口同步滑动处理后的数组，将滑动窗口内的数组限制在$[t - k, t + k]$中，统计滑动窗口内的数字数量，代表有$sum$多少个数字可以转成$t$，然后和可操作数量取最小值，代表可以有$op$个数字可以转成$t$，再比较每个$t$中的$op$最大值
+
+需要注意的是，如果$t$在原数组中出现过，需要额外处理，因为原数组中的这些数字不再需要操作变成$t$
+
+code：
+
+```c++
+class Solution {
+public:
+    int maxFrequency(vector<int>& nums, int k, int numOperations) {
+        sort(nums.begin(), nums.end());
+        using PII = pair<int, int>;
+        vector<PII> u_nums;
+        int num = nums[0], cnt = 1;
+        int n = nums.size();
+        for (int i = 1; i < n; i++) {
+            if (nums[i] != num) {
+                u_nums.push_back({num, cnt});
+                num = nums[i];
+                cnt = 1;
+            } else {
+                cnt++;
+            }
+        }
+        u_nums.push_back({num, cnt});
+        int sum = 0, ans = 0;
+        n = u_nums.size();
+        queue<int> q;
+        int s = u_nums[0].first, e = u_nums[n - 1].first;
+        for (int i = 0, j = 0; s <= e; s++) {
+            int l = s - k, r = s + k;
+            // [l, r]
+            while (!q.empty() && u_nums[q.front()].first < l) {
+                int index = q.front();
+                q.pop();
+                sum -= u_nums[index].second;
+            }
+            while (j < n && u_nums[j].first <= r) {
+                q.push(j);
+                sum += u_nums[j].second;
+                j++;
+            }
+            if (i < n && s == u_nums[i].first) {
+                int op = min(sum - u_nums[i].second, numOperations);
+                ans = max(ans, u_nums[i].second + op);
+                i += 1;
+            } else {
+                int op = min(sum, numOperations);
+                ans = max(ans, op);
+            }
+        }
+        return ans;
+    }
+};
+```
+
+时间复杂度：$O(nlogn + m)$，$n$是数组大小，$m$是数组中取值范围
+
+## 1625. 执行操作后字典序最小的字符串（2025.10.19）
+
+[原题链接](https://leetcode.cn/problems/lexicographically-smallest-string-after-applying-operations/description/?envType=daily-question&envId=2025-10-19)
+
+将字符串考虑为图中的一个结点
+
+当进行累加操作时，字符串x变为字符串y，代表从x设置一条有向边指向y
+
+同理，进行轮转操作时，字符串u变为w，代表从u设置一条有向边指向w
+
+那么就可以通过遍历整个图来找到初始字符串可以转换成的所有字符串，然后返回其中字典序最小的一个即可
+
+code:
+
+```c++
+class Solution {
+public:
+    void bfs(const string& state, int a, int b) {
+        queue<string> q;
+        q.push(state);
+        vis.insert(state);
+        while (!q.empty()) {
+            string st = std::move(q.front());
+            q.pop();
+            // 两条边, 累加, 或者轮转
+            string tmp = st;
+            int n = tmp.size();
+            for (int i = 1; i < n; i += 2) {
+                char ch = (tmp[i] - '0' + a) % 10 + '0';
+                tmp[i] = ch;
+            }
+            if (!vis.contains(tmp)) {
+                vis.insert(tmp);
+                q.push(tmp);
+            }
+            tmp = st.substr(n - b);
+            tmp += st.substr(0, n - b);
+            if (!vis.contains(tmp)) {
+                vis.insert(tmp);
+                q.push(tmp);
+            }
+        }
+        return;
+    }
+    string findLexSmallestString(string s, int a, int b) {
+        bfs(s, a, b);
+        auto it = vis.begin();
+        return (*it);
+    }
+    set<string> vis;
+};
+```
+
+时间复杂度：$O(100n)$，其中$n$是字符串的长度
+
+## 3397. 执行操作后不同元素的最大数量（2025.10.18）
+
+[原题链接](https://leetcode.cn/problems/maximum-number-of-distinct-elements-after-operations/description/?envType=daily-question&envId=2025-10-18)
+
+不难想到一个贪心思路：将数组从小到大进行排序，设排序后的数组为：
+$$
+a = [x1, x1, x2, x3, x3, ... xk]
+$$
+数组中可能有多个数字相同，为了尽可能让数组拥有不同元素，则应该：
+
+$a[0] = x1 - k$
+
+$a[1] = x1 - k + 1$
+
+关键在于当相邻的数字不同时的处理：
+
+表面上看，应该令$a[2] = x2 - k$，但$x1 - k + 1$有可能大于或等于$x2 - k$，这代表$x2 - k$这个数字已经被使用过了，因此下一个要使用的数字应该是$max(x1 - k + 2, x2 - k)$
+
+因此，可以保存一个$next\_value$或者$last\_value$，当相邻两个数不同时，根据上一个数当前被映射为数字，决定当前数字应该变为多少，（注意，如果$x1 - k + 2 > x2 + k$，那么$x2$变或不变都无所谓了，能变的数字肯定都出现过了）
+
+code:
+
+```c++
+class Solution {
+public:
+    using i64 = long long;
+    int maxDistinctElements(vector<int>& nums, int k) {
+        sort(nums.begin(), nums.end());
+        int n = nums.size();
+        i64 elem = nums[0];
+        i64 last = elem - k;
+        int cnt = 0;
+        for (int i = 0; i < n; i++) {
+            if (nums[i] != elem) {
+                elem = nums[i];
+                last = max(last, elem - k);
+            }
+            if (last <= elem + k) {
+                last++;
+                cnt++;
+            }
+        }
+        return cnt;
+    }
+};
+```
+
+时间复杂度：$O(n)$
+
 ## 2598. 执行操作后的最大MEX（2025.10.16）
 
 [原题链接](https://leetcode.cn/problems/smallest-missing-non-negative-integer-after-operations/description/?envType=daily-question&envId=2025-10-16)
