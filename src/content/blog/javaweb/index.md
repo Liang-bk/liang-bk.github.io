@@ -116,6 +116,8 @@ language: '中文'
 
 Y表示可以使用，-表示不行
 
+比如`<scope>test</scope>`表示让某一个依赖包只能在项目的test包下使用，其他包不能使用
+
 ### 生命周期
 
 三个周期相互独立
@@ -184,3 +186,236 @@ public class MainTest {
 #### 设置测试名
 
 `@DisplayName("xxx")`：显示测试类/方法名为"xxx"
+
+## Spring Boot
+
+### 配置
+
+idea可以自动化配置spring boot：
+
+`new module`->`Spring Boot`->`Type: Maven`->`设置项目名与jdk版本`->`next`
+
+->`选择Spring boot版本`->`Dependency:Web:Spring Web`
+
+#### 启动入口
+
+`main/java/xxx/SpringbootxxxApplication`中的main方法，带有`@SpringBootApplication`注解
+
+#### 请求注解
+
+1. `@RestController`：类注解，标识其是一个请求处理类
+2. `@RequestMapping("")`：方法注解，填写对应的请求路径，标识其是该请求路径对应的处理方法
+
+```java
+@RestController
+public class HelloController {
+    @RequestMapping("/hello")
+    public String Hello(String name) {
+        System.out.println("name: " + name);
+        return "Hello " + name + "~";
+    }
+}
+```
+
+### HTTP
+
+- 无状态，不同请求之间相互独立
+- 一次请求对应一次响应，请求和响应都由 **行/头/体**组成
+- 基于TCP
+
+#### spring boot处理请求
+
+内置的tomcat web服务器会将http文本封装为`HttpServletRequest`对象，在使用时可以直接将其作为函数参数：
+
+```java
+String method = request.getMethod();	// get/post
+String url = request.getRequestURL().toString();	// http://localhost:8080/request
+String uri = request.getRequestURI();	// request
+String protocol = request.getProtocol();	// HTTP/1.1
+String name = request.getParameter("name");	// 
+String age = request.getParameter("age");
+// 获取请求头参数
+String accept = request.getHeader("accept");
+String contentType = request.getHeader("content-type");
+```
+
+#### 响应码
+
+- 1xx：响应中，临时状态码
+- 2xx：成功
+- 3xx：重定向
+- 4xx：客户端错误
+- 5xx：服务端错误
+
+#### spring boot返回响应
+
+1. 用`HttpServletResponse`对象来设置：
+
+   ```java
+   response.setStatus(HttpServletResponse.SC_OK);
+   response.setHeader("name", "1");
+   response.getWriter().write("<h1>hello response</h1>");
+   ```
+
+2. 使用`ResponseEntity`对象来链式设置
+
+   ```java
+   @RequestMapping("/response")
+   public ResponseEntity<String> response(HttpServletRequest request) {
+       return ResponseEntity
+           .status(401)
+           .header("Access-Control-Allow-Origin", "*")
+           .body("");
+   }
+   ```
+
+一般不手动设置响应状态码和响应头
+
+### 三层架构
+
+- Controller（控制层）：接受请求、响应数据
+- Service（业务逻辑层）：处理具体的业务逻辑
+- dao（数据访问层）：负责数据访问（增删改查...）
+
+架构：
+
+```bash
+--controller
+	--xxxController.java
+--dao
+	--impl
+		xxxDaoImpl.java
+	xxxDao.java
+--service
+	--impl
+		xxxServiceImpl.java
+	xxxService.java
+Application.java
+```
+
+其中，`impl`存接口实现，`xxxDao`存的是接口，`service`同理
+
+1. controller直接使用service的功能，将请求数据解析后调用service处理业务逻辑
+
+2. service直接使用dao的功能，在处理业务逻辑时涉及数据的增删改查，最后将数据返回给controller
+
+3. dao负责提供数据增删改查的接口，一般和model（模型），数据库关联
+
+4. controller在调用完service完成业务逻辑处理后，将数据封装一层作为相应的数据返回给客户端
+
+#### 分层解耦
+
+为了解决在Controller中主动new Service对象和在Service中主动new Dao对象导致的不方便改变接口实现的问题
+
+通过Spring boot框架提供的**Bean**对象来解决上述问题**（Bean对象是容器中创建和管理的对象）**
+
+##### 控制反转（IOC）
+
+将对象的创建控制权转移给外部容器
+
+##### 依赖注入（DI）
+
+容器为应用程序提供运行时所依赖的资源
+
+##### 解决方案1
+
+使用`@Component`和`@Autowired`注解：
+
+```java
+// IOC: 将对象交给容器管理
+@Component
+public class UserDaoImpl implements UserDao {
+    ...
+}
+
+// DI: 从容器中取对象
+@Component
+public class UserServiceImpl implements UserServcie{
+    @Autowired
+    private UserDao userDao;
+}
+
+// DI: 从容器中取对象
+@RestController
+public class UserController {
+    @Autowired
+    private UserDao userDao;
+}
+```
+
+##### 解决方案2
+
+```java
+@Repository
+public class UserDaoImpl implements UserDao {
+    ...
+}
+
+@Serivce
+public class UserServiceImpl implements UserService {
+    @Autowired
+    private UserDao userDao;
+}
+
+@RestController
+public class UserController {
+    @Autowired
+    private UserDao userDao;
+}
+```
+
+`@Repository`和`@Service`细化了`@Component`注解，controller一般只设置`@RestController`注解，因为其包含了`@Controller`
+
+##### DI详解
+
+1. 基于`@Autowired`注解的三种注入：
+
+   - 在变量名上添加：
+
+     ```java
+     @Autowired
+     private UserDao userDao;
+     ```
+
+   - 构造函数上添加：
+
+     ```java
+     @Serivce
+     public class UserServiceImpl implements UserService {
+         private final UserDao userDao;
+         @Autowired
+         UserServiceImpl(UserDao userDao) {
+             this.userDao = userDao;
+         }
+     }
+     ```
+
+   - 设置set方法（省略，一般用前两种）
+
+2. `@Autowired`默认按照类型注入，即如果有多个类实现了同一个接口，bean对象就不知道该保存哪个类型，从而报错，解决方案如下：
+
+   - 使用`@Primary`注解表明哪个类是主要实现的类
+
+     ```java
+     @Primary
+     @Repository
+     public class UserDaoImpl implements UserDao {
+         ...
+     }
+     ```
+
+   - 使用`@Qualifier`注解变量或构造函数表明使用哪个实现类
+
+     ```java
+     @Autowired
+     @Qualifier("userDaoImpl")
+     private UserDao userDao;
+     ```
+
+   - 使用`@Resource`注解变量表明使用的实现类的名称（**不是Spring框架的提供，推荐使用第二个实现**）
+
+     ```java
+     @Resource(name = "userDaoImpl")
+     private UserDao userDao;
+     ```
+
