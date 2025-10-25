@@ -1,7 +1,7 @@
 ---
 title: 'javaweb 笔记'
 publishDate: '2025-10-20'
-updatedDate: '2025-10-20'
+updatedDate: '2025-10-23'
 description: ''
 tags:
 
@@ -189,7 +189,7 @@ public class MainTest {
 
 ## Spring Boot
 
-### 配置
+### 创建
 
 idea可以自动化配置spring boot：
 
@@ -418,4 +418,197 @@ public class UserController {
      @Resource(name = "userDaoImpl")
      private UserDao userDao;
      ```
+
+### 配置文件
+
+
+
+## MYSQL
+
+### 连接
+
+`mysql -u{username} -p [-h{ip} -P{port}]`
+
+- `{username}`：要填的用户名，自用填`root`
+- `{ip}`：远程数据库的ip地址
+- `{port}`：远程数据库的端口
+
+### SQL基本操作
+
+DDL/DML/DQL/DCL（定义/操作/查询/控制）
+
+#### DLL
+
+定义数据库对象（数据库，表，字段）
+
+##### 数据库操作
+
+```mysql
+-- 查询数据库
+show database;
+-- 创建指定数据库
+create database dbname;
+-- 删除指定数据库
+drop database dbname;
+-- 查看数据库表
+select database();
+-- 使用指定数据库
+use dbname;
+```
+
+##### 表操作
+
+```mysql
+-- 创建表 []代表可选项
+create table tablename(
+    字段1 字段类型 [约束] [comment 注释],
+    ...
+)[comment 表注释]
+```
+
+1. 约束：
+   - 非空`not null`
+   - 唯一`unique`
+   - 主键`primary key`
+   - 默认`default` 跟一个值，表示字段默认值
+   - 外键`foreign`
+   - 自增`auto increment`
+2. 数据类型：
+   - 数字：`tinyint`，`int`，`bigint`
+   - 字符串：`char`（固定），`varchar`（不固定）
+   - 日期：`date`，`datetime`
+
+```mysql
+-- 查看当前数据库所有表
+show tables;
+-- 查看表的所有字段
+desc tablename;
+-- 查询建表语句
+show create table tablename;
+-- 向表中增加，修改，重命名，删除字段以及重命名表名
+alter table tablename add 字段 类型 [comment] [约束];
+alter table tablename modify 字段 类型;
+alter table change 旧字段名 新字段名 类型 [comment] [约束];
+alter table tablename drop column 字段;
+alter table tablename rename to 表名;
+-- 删除表
+drop table [if exists] tablename;
+```
+
+#### DML
+
+- 插入
+
+  ```mysql
+  insert into tablename(字段1， 字段2) values (值1 ，值2);
+  insert into tablename values (值1， 值2);
+  -- 可叠加
+  ```
+
+- 更新
+
+  ```mysql
+  update tablename set 字段1 = 值1, 字段2 = 值2, ... [where ...]
+  -- 不加where条件表示更新所有行
+  ```
+
+- 删除
+
+  ```mysql
+  delete from tablename [where ...]
+  -- 不加where会删除所有行
+  ```
+
+#### DQL
+
+```mysql
+select 
+	-- distinct 去重
+	[distinct] 字段 [AS 别名1] 
+from
+	tablename
+where
+	-- 比较 <, >, =, !=, between ... and, in(...), like _/%, is null
+	-- 逻辑 &&, ||, !
+	条件
+group by
+	-- 聚合函数 count(), max(), min(), avg(), sum(), select用
+	-- 使用group by, 前面的select只能选择分组的字段或者聚合函数
+	分组字段
+having 
+	-- 解决where后不能跟聚合函数的问题
+	分组后条件列表
+order by
+	-- 默认asc升序排序, 要降序需指明desc
+	排序字段列表 [asc]	
+limit
+	-- 如0, 5表示查出来的结果从第0条开始展示，最多展示5条, 第一个参数为0可以省略
+	起始索引, 查询记录数
+```
+
+### JDBC
+
+一套接口，由数据库厂商实现，比如使用mysql要引入对应的jar包：
+
+```xml
+<dependency>
+    <groupId>com.mysql</groupId>
+    <artifactId>mysql-connector-j</artifactId>
+    <version>8.0.33</version>
+</dependency>
+```
+
+简单使用：
+
+```java
+// 1. 注册
+class.forName("com.mysql.cj.jdbc.Driver");
+// 2. 连接
+String url = "jdbc:mysql://localhost:3306/dbname";
+String username = "root";
+String password = "123456";
+Connection conn = DriverManager.getConnection(url, username, password);
+// 3. 获取sql执行对象
+Statement statement = connection.createStatement();
+// 4. 执行语句, i是执行语句后影响的行数
+int i = statement.executeUpdate("update user set age = 25 where id = 1");
+// 5. 释放连接
+statement.close();
+conn.close();
+```
+
+#### 预编译执行查询
+
+```java
+String sql = "select id, username from user where username = ?";
+pStatement = conn.prepareStatement(sql);
+// 设置sql语句中的?占位符
+pStatement.setString(1, "xxx");
+// 执行语句, 得到结果集
+resultSet = pStatement.executeQuery();
+// 遍历结果集
+while (resultSet.next()) {
+    // getXxx: 可以输入列标号, 也可以输入列名
+    resultSet.getInt("id");
+}
+resultSet.close();
+pStatement.close();
+```
+
+- 防sql注入
+- 数据库会缓存语句，然后对占位符`?`替换，性能更高
+
+### Mybatis
+
+ORM（对象关系映射）框架，简化数据库操作
+
+
+
+## RESTful
+
+URL定位资源
+
+HTTP请求方法描述操作
+
+
 
