@@ -1,7 +1,7 @@
 ---
 title: 'LeetCode 每日一题'
 publishDate: '2025-09-26'
-updatedDate: '2025-10-21'
+updatedDate: '2025-10-26'
 description: 'LeetCode 每日一题题解'
 tags:
   - leetcode
@@ -9,6 +9,55 @@ tags:
 language: '中文'
 heroImage: { src: './leetcode.png', color: '#B4C6DA' }
 ---
+## 3728. 边界与内部和相等的稳定子数组（2025.10.26）
+
+[原题链接](https://leetcode.cn/problems/stable-subarrays-with-equal-boundary-and-interior-sum/description/)
+
+求子数组的数量，$10^4$以下能用$O(n^2)$，$10^5$以上就是$O(nlogn)$或者$O(n)$的做法，根据经验，多数与差分，前缀和有关（双指针只是在这个过程用到的技巧），从前缀和的角度去考虑两端的数l和r，找到l和r的关系后，枚举一端（通常是r），同时移动另一端使其满足先前的关系
+
+以问题为例，长度至少为3，首尾元素需相等，中间元素的和需要等于首元素，假设已经有前缀和$sum$，那么上面的条件如下：
+
+- `r - l + 1 >= 3`
+- `capacity[l] == capacity[r]`
+- `sum[r - 1] - sum[l] == capacity[l]`
+
+将最后一个式子变形得：`sum[r - 1] == sum[l] + capacity[l]`
+
+于是可以在枚举r时，同时记录`{capacity[l], sum[l] + capacity[l]}`的数量（使用map），在满足`r - l + 1 >= 3`的情况下，搜索记录`{capacity[r], sum[r - 1]}`
+
+如果之前记录的左端被记录过，说明是对于当前r来说，满足以上三个条件的左端点，就可以累加，累加的结果就是答案
+
+code：
+
+```c++
+class Solution {
+public:
+    long long countStableSubarrays(vector<int>& capacity) {
+        using i64 = long long;
+        int n = capacity.size();
+        i64 sum_l = 0, sum_r = 0;
+        sum_r += capacity[0] + capacity[1];
+        map<pair<i64, i64>, i64> map;
+        i64 ans = 0;
+        for (int r = 2, l = 0; r < n; r++) {
+            while (r - l + 1 >= 3) {
+                sum_l += capacity[l];
+                pair<i64, i64> index {capacity[l], capacity[l] + sum_l};
+                map[index]++;
+                l++;
+            }
+            pair<i64, i64> index {capacity[r], sum_r};
+            sum_r += capacity[r];
+			if (map.contains(index)) {
+                ans += map[index];
+            }
+        }
+        return ans;
+    }
+};
+```
+
+时间复杂度：$O(nlogn)$
 
 ## 3347. 执行操作后元素的最高频率 II（2025.10.22）
 
