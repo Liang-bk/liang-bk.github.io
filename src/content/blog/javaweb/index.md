@@ -421,7 +421,24 @@ public class UserController {
 
 ### 配置文件
 
+将原来的`.property`文件换为`.yml`文件（键值对配置）
 
+```yaml
+spring:
+  applicaiton:
+    name: springboot-mybatis-quickstart
+  datasource:
+    type: ..
+    url: ..
+    driver-class-name: ..
+```
+
+- 同缩进同级
+- 键和值之间有一个空格
+
+### 测试
+
+测试类要在引导程序同包或子包下，同时对类添加`@SpringBootTest`注解
 
 ## MYSQL
 
@@ -600,15 +617,69 @@ pStatement.close();
 
 ### Mybatis
 
-ORM（对象关系映射）框架，简化数据库操作
+ORM（对象关系映射）框架，简化数据库操作，在这里是对JDBC的进一步封装，底层使用了连接池初始化了一定数量的连接来实现资源复用
+
+#### 配置
+
+在项目`application`文件写入：
+
+```xml
+spring.datasource.url=jdbc:mysql://localhost:3306/dbname
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+spring.datasource.username=root
+spring.datasource.password=1234
+```
+
+#### 使用方法
+
+新建mapper包，定义`Mapper`接口，使用`@Mapper`注解
+
+##### 注解
+
+在`Mapper`接口的方法中加入`@Select()`，`@Update()`，`@Insert()`，`@Delete()`注解，并填入SQL语句，以实现对应的功能
+
+**框架会在程序运行时自动为接口创建一个实现类对象（代理对象），并将该对象存入IOC容-**
+
+以查询为例：
+
+```java
+public interface UserMapper {
+    // #{} 在实际执行时会被替换为 ?
+    // 当函数有多个参数时需要使用@Param注解为对应的参数起名， 且与#{}中一致
+    @Select("select * from user where username = #{username} and password = #{password}")
+    public User findByUsernameAndPassword(@Param("username") String username, @Param("password") String password);
+    // 查询结果会被自动封装到User实体类中
+    // 多行结果可以使用List接收
+}
+```
+
+##### XML映射文件
+
+注解适合写一些简单的SQL语句，复杂的一般在XML文件中写
+
+目录结构：
+
+![](./mybatis_xml.png)
 
 
+
+- 同包同名
+- xml文件的namespace属性为Mapper接口全限定名一致
+- xml文件的sql语句的id与Mapper接口中的方法名一致，并保持返回类型一致
+
+![](./mybatis_xml2.png)
+
+
+
+xml文件中的SQL语句写法和注解相同，使用`#{}`来代表参数占位，由函数参数传入，如果有多个，就在函数参数上加入`@Param`注解来标明
 
 ## RESTful
 
 URL定位资源
 
-HTTP请求方法描述操作
+HTTP请求方法描述操作（`GET`/`DELETE`,`POST`,`PUT`），分别为查删增改
+
+
 
 
 
