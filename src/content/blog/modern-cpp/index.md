@@ -1,7 +1,7 @@
 ---
 title: 'modern C++ 个人总结'
 publishDate: '2025-04-30'
-updatedDate: '2025-10-20'
+updatedDate: '2025-10-31'
 description: '记录现代c++(11/14/17/20)中的特性，使用一些简明的例子来展示'
 tags:
   - modern c++
@@ -305,6 +305,256 @@ int main() {
 ```
 
 ## C++ Templates（C++模板）
+
+### 模板类
+
+在类定义前使用`template<typename T>`来标识模板类：
+
+```c++
+template<typename T>
+class Foo {
+  public:
+    Foo(T var) : var_(var) {}
+    void print() {
+      std::cout << var_ << std::endl;
+    }
+  private:
+    T var_;
+};
+```
+
+其中`T`是传递的类型，`typename`用作声明类型的关键字（也可以用`class`），模板类型可以设置多个，如下：
+
+```c++
+template<typename T, typename U> 
+class Foo2 {
+  public:
+    Foo2(T var1, U var2) 
+      : var1_(var1)
+      , var2_(var2) {}
+    void print() {
+      std::cout << var1_ << " and " << var2_ << std::endl;
+    }
+  private:
+    T var1_;
+    U var2_;
+};
+```
+
+特化模板类：当模板类型为指定类型（如`size_t`）时单独设计的代码，当外部显示指定了类型时，会使用这部分代码：
+
+```c++
+template<typename T>
+class FooSpecial {
+  public:
+    FooSpecial(T var) : var_(var) {}
+    void print() {
+      std::cout << var_ << std::endl;
+    }
+  private:
+    T var_;
+};
+
+// 特化的模板类，专门化于float类型。
+// 指定类型FooSpecial<float> foo;时，会使用下面的类
+template<>
+class FooSpecial<float> {
+  public:
+    FooSpecial(float var) : var_(var) {}
+    void print() {
+      std::cout << "hello float! " << var_ << std::endl;
+    }
+  private:
+    float var_;
+};
+```
+
+类模板的参数不一定是类型，可以是值：
+
+```c++
+// 这里的T不是类型，而是在使用时需要填入的一个值，如Bar<10>
+// std::array就使用了该类模板，用于指定静态数组的大小
+template<int T>
+class Bar {
+  public: 
+    Bar() {}
+    void print_int() {
+      std::cout << "print int: " << T << std::endl;
+    }
+};
+```
+
+### 模板函数
+
+在函数上使用模板与在类上使用模板几乎相同，也可以在一个普通的类或者类模板中声明一个模板成员函数：
+
+```c++
+template<typename T>
+class Foo3 {
+  public:
+    Foo3(T var) : var_(var) {}
+    template<typename U>
+    void solve(U var) {
+        // 做一些处理跟var有关的事
+    }
+    void print() {
+      std::cout << var_ << std::endl;
+    }
+  private:
+    T var_;
+};
+```
+
+**tips**：使用模板时，声明与定义应该放在同一个文件中，通常做法都是在头文件中声明并定义模板
+
+## 杂项
+
+### wrapper class（包装类）
+
+- 包装类使用RAII（资源获取即初始化）的思想，将一部分资源交给包装类来管理（内存，文件，网络描述符），当包装类被实例构造时，代表其管理的底层资源是可用的，被析构时，资源自动变得不可用
+
+- 包装类通常禁用拷贝构造函数，避免多个对象管理同一资源；但支持移动语义，转移资源的所有权
+
+```c++
+class IntPtrManager {
+  public:
+    // 包装类的所有构造函数都应该初始化一个资源。
+    // 在这种情况下，这意味着分配我们正在管理的内存。
+    // 这个指针数据的默认值是 0。
+    IntPtrManager() {
+      ptr_ = new int;
+      *ptr_ = 0;
+    }
+
+    // 这个包装类的另一个构造函数，接受一个初始值。
+    IntPtrManager(int val) {
+      ptr_ = new int;
+      *ptr_ = val;
+    }
+
+    // 包装类的析构函数。析构函数必须销毁它正在管理的资源；
+    // 在这种情况下，析构函数删除指针！
+    ~IntPtrManager() {
+      // 注意，由于移动构造函数通过将 ptr_ 值设置为 nullptr 来标记对象无效，
+      // 我们必须在析构函数中考虑这一点。
+      // 我们不想对 nullptr 调用 delete！
+      if (ptr_) {
+        delete ptr_;
+      }
+    }
+
+    // 这个包装类的移动构造函数。注意在移动构造函数被调用后，
+    // 实际上将 other 的所有数据移动到被构造的指定实例中，
+    // other 对象不再是 IntPtrManager 类的有效实例，
+    // 因为它没有内存可以管理。
+    IntPtrManager(IntPtrManager&& other) {
+      ptr_ = other.ptr_;
+      other.ptr_ = nullptr;
+    }
+
+    // 这个包装类的移动赋值操作符。
+    // 与移动构造函数类似的技术。
+    IntPtrManager &operator=(IntPtrManager &&other) {
+      if (ptr_ == other.ptr_) {
+        return *this;
+      }
+      if (ptr_) {
+        delete ptr_;
+      }
+      ptr_ = other.ptr_;
+      other.ptr_ = nullptr;
+      return *this;
+    }
+
+    // 我们删除拷贝构造函数和拷贝赋值操作符，
+    // 所以这个类不能被拷贝构造。
+    IntPtrManager(const IntPtrManager &) = delete;
+    IntPtrManager &operator=(const IntPtrManager &) = delete;
+
+    // 设置函数。
+    void SetVal(int val) {
+      *ptr_ = val;
+    }
+
+    // 获取函数。
+    int GetVal() const {
+      return *ptr_;
+    }
+
+  private:
+    int *ptr_;
+
+};
+
+```
+
+### namespace（命名空间）
+
+- 命名空间主要用于提供作用域、组织代码、防止命名冲突
+
+- 使用`namespace xxx`定义一个命名空间（可以嵌套）
+
+  ```c++
+  namespace name1 {
+      ...
+      namespace name2 {
+          ...
+      }
+  }
+  ```
+
+- 使用`::`操作符访问不同命名空间的标识符，如`name::name2::x`
+
+- 使用`using`关键字引入命名空间或其中的标识符，如`using namespace std;`，`using std::cout`
+
+- 匿名空间，即不指定名字的命名空间：
+
+  ```c++
+  namespace {
+      ...
+  }
+  ```
+
+  编译器会主动生成独一无二的名字
+
+- 实践：
+
+  - 在头文件中定义有名字的命名空间，在源文件名定义匿名空间
+
+    （匿名空间定义在头文件中，那么所有包含了头文件的源文件都将有一个对应空间的副本）
+
+  - 在头文件中适当使用`using name::;`，不要使用`using namespace xxx;`
+
+    （头文件中使用`using namespace xxx`会影响到所有包含其的源文件）
+
+
+
+### iterator（迭代器）
+
+提供对容器（数组、链表、树）中的元素的统一访问方式，无需暴露容器内部结构、
+
+- 形式：定义在每个容器内部，定义一个`vector`的迭代器`std::vector<int>::iterator it`
+
+- 提供访问：类似访问指针，使用`*`操作符，根据容器类型的不同：
+
+  - 顺序容器（如`vector`）：`*iterator`即为`T`类型
+  - 关联容器（如`map`）：`*iterator`即为`pair<K, V>`类型
+
+- 提供移动：从容器的某个位置移动到另一个位置，前缀`++`，`--`操作符，分别表示将迭代器从当前位置向后移动一位和向前移动一位
+
+- 容器提供：
+
+  ![](./container_iterator.png)
+
+- 算法提供：
+
+  ![](./algo_iterator.png)
+
+
+
+
+
+
 
 ## 参考资料
 - [C++之旅](https://book.douban.com/subject/36596125/)
