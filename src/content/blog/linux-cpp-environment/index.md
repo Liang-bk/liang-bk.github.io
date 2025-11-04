@@ -53,8 +53,9 @@ ll /etc/apt/sources.list.d
 
 以`ppa-jammy.list`为例，里面的内容原本是：
 
-```
-deb https://ppa.launchpadcontent.net/ubuntu-toolchain-r/ppa/ubuntu/ jammy main # deb-src https://ppa.launchpadcontent.net/ubuntu-toolchain-r/ppa/ubuntu/ jammy main
+```bash
+deb https://ppa.launchpadcontent.net/ubuntu-toolchain-r/ppa/ubuntu/ jammy main 
+# deb-src https://ppa.launchpadcontent.net/ubuntu-toolchain-r/ppa/ubuntu/ jammy main
 ```
 
 使用如下命令换为中科大的源（最后两个参数是`ppa`和`test`两个文件名）：
@@ -278,6 +279,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ```
 
 上述命令会在`build`目录下生成`compile_commands.json`，clangd会根据这个文件生成索引，存放在项目的`.cache`目录下，如果没有，可能不会正常工作
+
+至此，clangd应该能够正常工作了
 
 #### cmake tools
 
