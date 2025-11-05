@@ -325,6 +325,89 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 请参考[VSCode C/C++开发环境配置 Clang/LLVM+LLDB+CMake](https://www.ispellbook.com/post/VSCodeCppDevConfig)
 
+## 常见问题
+
+### codelldb调试无法正常显示STL内容
+
+#### 问题描述
+
+比如源码为：
+
+```c++
+struct node {
+    unordered_map<int, int> map;
+};
+int main() {
+    node node;
+    node.map.insert({1, 1});
+    return 0
+}
+```
+
+显示的是：
+
+![](./code-lldb-bug.png)
+
+可以看到内嵌到`struct`或者`class`内的STL组件可能无法正常显示
+
+#### 解决方案
+
+https://github.com/vadimcn/codelldb/issues/707
+
+插件作者说lldb不能支持MSVC STL，猜测是由于linux下使用g++ STL导致的问题（cmake会默认链接`libstdc++`）
+
+修改`CMakeLists.txt`，使用llvm组件（这些组件在llvm配置时应该就配置完成了）：
+
+```cmake
+# 设置编译器
+set(CMAKE_CXX_COMPILER clang++-20)
+# 添加编译标志
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+# 设置链接标志
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
+```
+
+重新编译，再调试：
+
+![](./code-lldb-bug-fixed.png)
+
+ps：在linux上使用llvm工具链还是不太方便，修改了好多配置，不想折腾还是默认使用g++和gdb比较好
+
+### clangd设置代码补全
+
+#### 问题描述
+
+clangd默认配置在代码补全的时候会把模板或函数的所有参数都补全出来，例如，当你输入了
+
+```c++
+std::set
+```
+
+并试图使用clangd提供的代码补全时，它会补全为：
+
+```c++
+std::set<class, class, class>
+```
+
+可以使用`Tab`一个一个填充或删除参数，但这样比较麻烦
+
+#### 解决方案
+
+在`.vscode`文件夹下新增`settings.json`，内容为：
+
+```json
+{
+    "clangd.arguments": [
+        "--function-arg-placeholders=false",
+        "--completion-style=bundled"
+    ]
+}
+```
+
+这样会影响在当前项目目录下`clangd`的补全功能，当输入`std::set`时，会补全为`std::set<>`
+
+也可以直接在`clangd`插件的设置中找到`arguments`项，设置上面两个参数，这样会影响所有目录下的补全行为
+
 ## 参考
 
 - [如何在 Ubuntu 中安装和切换多版本 GCC 编译器 - 系统极客](https://www.sysgeek.cn/ubuntu-install-gcc-compiler/)
