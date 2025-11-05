@@ -527,7 +527,7 @@ class IntPtrManager {
 
     （头文件中使用`using namespace xxx`会影响到所有包含其的源文件）
 
-
+  - 如果只是想暂时使用命名空间或某个标识符，可以在函数中使用`using`
 
 ### iterator（迭代器）
 
@@ -535,7 +535,7 @@ class IntPtrManager {
 
 - 形式：定义在每个容器内部，定义一个`vector`的迭代器`std::vector<int>::iterator it`
 
-- 提供访问：类似访问指针，使用`*`操作符，根据容器类型的不同：
+- 提供访问和修改：类似指针，指向容器中的某个位置，使用`*`操作符可以操作对应的数据，根据容器类型的不同有不同的数据类型：
 
   - 顺序容器（如`vector`）：`*iterator`即为`T`类型
   - 关联容器（如`map`）：`*iterator`即为`pair<K, V>`类型
@@ -549,6 +549,137 @@ class IntPtrManager {
 - 算法提供：
 
   ![](./algo_iterator.png)
+
+## 自动推导
+
+`decltype`和`auto`是现代c++中的类型推导工具
+
+### auto
+
+使用`auto`可以极大简化代码：
+
+```c++
+// 下面两行代码等价
+// std::vector<int>::iterator it = nums.begin();
+auto it = nums.begin();
+```
+
+使用`auto`还可以定义`lambda`表达式，自动推导函数返回类型等...
+
+`auto`会自动推导赋值表达式右侧的类型，类似模板参数`template<typename T>`，二者的推导规则几乎相同
+
+#### 按值传递
+
+使用`auto`，默认会忽略顶层`const`和引用（行为与使用模板参数的函数传值类似）：
+
+```c++
+int x = 42;
+int &y = x;
+const int &z = y;
+
+auto a = x; // 即int a = x;
+auto b = y; // 即int b = y;
+auto c = z; // 即int c = z;
+```
+
+#### 引用传递
+
+使用`auto&`，与普通类型引用类似，同时会保留`const`属性：
+
+```c++
+int x = 42;
+int &y = x;
+const int &z = y;
+
+auto& a = x; // 即int& a = x;
+auto& b = y; // 即int& b = y;
+auto& c = z; // 即const int& c = z;
+```
+
+#### 万能引用
+
+使用`auto&&`，这不是上面提到的右值引用，而是遵守**引用折叠规则**的万能引用，它根据赋值表达式右侧的值类型（左值/右值）来决定左侧变量的类型：
+
+```c++
+int x = 42;
+const int &y = x;
+
+auto&& a = x; // 即int& a = x;
+auto&& b = y; // 即const int& b = y;
+auto&& c = 42; // 即int&& c = 42;
+```
+
+这与模板参数的推导类似：
+
+```c++
+template<typename T>
+auto func1(T&& t) -> void {
+    // t的类型根据传入参数决定
+}
+// 上面的代码
+// 在传入左值时参数被推导为T& t
+// 在传入右值时参数被推导为T&& t
+```
+
+#### 安全实践
+
+由于使用`auto`来定义变量会默认发生拷贝，比如：
+
+`auto vec = nums;`（假设`nums`是一个`vector<int>`类型变量）
+
+`vec`和`nums`就是两个不同的数组
+
+当只需要读取而不需要修改变量，且不想要拷贝带来的开销，可以使用：
+
+```c++
+vector<vector<int>> nums1 = {
+    {1, 2, 3}, 
+    {4, 5, 6}
+};
+// 使用了容器的便利特性
+for (const auto& vec : nums1) {
+    // vec不会拷贝原数组
+    for (const auto& i : vec) {
+        cout << i << ' ';
+    }
+}
+```
+
+### decltype
+
+`decltype`像是一个高级的`auto`，它根据给定的表达式，推导出原表达式的精确类型，包括顶层`const`引用
+
+对于`decltype(e)`来说：
+
+1. 如果`e` 是一个**变量**（如 `x`）或**类成员访问**（如 `obj.member`），那么 `decltype(e)` 就是该变量或成员声明的类型。
+2. 如果表达式 `e` 值类别是**左值**，`decltype(e)` 是 `T&`（引用类型），其中 `T` 是 `e` 的类型（这个`T`不是模板类型那个`T`）。
+3. 如果表达式 `e` 值类别是**纯右值**），`decltype(e)` 是 `T`（原类型）。
+4. 如果表达式`e`值类别是**将亡值**，`decltype(e)`是`T&&`（右值引用）。
+
+```c++
+int i = 0;
+// 规则1 
+decltype(i); // 推导为int
+// 规则2
+decltype((i)); // 推导为int&
+
+int& func() {
+    return i;
+}
+decltype(func()); //推导为int&
+
+// 规则3
+decltype(1 + 2); // 推导为int
+
+// 规则4
+decltype(std::move(i)); // 推导为int&&
+```
+
+## 内存管理
+
+
+
+## 锁与同步
 
 
 
