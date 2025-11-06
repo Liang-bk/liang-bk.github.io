@@ -1,7 +1,7 @@
 ---
 title: 'LeetCode 每日一题'
 publishDate: '2025-09-26'
-updatedDate: '2025-10-26'
+updatedDate: '2025-10-27'
 description: 'LeetCode 每日一题题解'
 tags:
   - leetcode
@@ -9,6 +9,99 @@ tags:
 language: '中文'
 heroImage: { src: './leetcode.png', color: '#B4C6DA' }
 ---
+## 3729. 统计有序数组中可被K整除的子数组数量（2025.10.27）
+
+[原题链接](https://leetcode.cn/problems/count-distinct-subarrays-divisible-by-k-in-sorted-array/description/)
+
+题目要求`[l, r]`的对数，使得：
+
+- `(sum[r] - sum[l - 1]) % k == 0`（`sum`是前缀和）
+- `nums[l1, r2] != nums[l2, r2]`（长度不同或者长度相同内容不同）
+
+因为`nums`是非降序的，考虑更严苛的条件，一个**升序**数组，那么第二个条件就没用了，因为所有的子数组必定不相同，再来考虑如果求出满足第一个条件的`[l, r]`对数：
+
+第一个条件可以转化成`sum[r] % k == sum[l - 1] % k`
+
+于是可以枚举右端点r，同时在哈希表中记录左端点`l(l <= r)`的数量，其中`key`是`sum[0, l - 1] % k`，然后计算`sum[0, r] % k`，去哈希表中查有多个左端点满足条件，就能得出右端点为r时有多少个子数组满足条件，总和相加即为答案`ans`
+
+如果升序数组变为非降序数组，用上面的方法计算会出现一个重复计算的问题，如样例`[2, 2, 2, 2, 2, 2]`和模值`6`，但考虑重复计数的情况，两个`[l, r]`：
+
+1. 长度相同
+2. 内容相同
+
+换句话说，只有在子数组为`[x, x, ..., x]`这样的形式时才会出现重复计数，那么我们可以统计出来所有这样的子数组，以`<x, length>`的形式存为一个数组
+
+对于`<x, length>`这样一个子数组，先前的`ans`中出现了重复计数，主要原因是相同长度统计了多次，考虑使用`m`个`x`能够整除`k`，即`m * x % k == 0`，容易使用最小公倍数算出`m = lcm(x, k) / x`，那么该子数组最少有`m + 1`个`x`，才有可能出现重复计数：
+
+- `m`个`x`，重复计数了`length - m`次
+
+- `2m`个`x`，重复计数了`length - 2m`次
+
+  ...
+
+令`l = length / m`（下取整），可以得到子数组`<x, length>`的重复计数：
+
+`repeat_x = l * length - m * (l + 1) * l / 2`
+
+使用`ans`减去每一个`repeat_x`即为答案
+
+code：
+
+```c++
+class Solution {
+    using i64 = long long;
+public:
+    int gcd(int x, int y) {
+        return y == 0 ? x : gcd(y, x % y);
+    }
+
+    i64 lcm(int x, int y) {
+        return 1ll * x * y / gcd(x, y);
+    }
+    long long numGoodSubarrays(vector<int>& nums, int k) {
+        
+        i64 ans = 0;
+        // sum[r] % k == sum[l - 1] % k
+        unordered_map<i64, int> u_map;
+        u_map[0] = 1;
+        i64 sum_r = 0;
+        int n = nums.size();
+        for (int i = 0; i < n; i++) {
+            sum_r = (sum_r + nums[i]) % k;
+            if (u_map.contains(sum_r)) {
+                ans += u_map[sum_r];
+            }
+            u_map[sum_r]++;
+        }
+        // <num, length>
+        vector<pair<int, int>> total;
+        int num = nums[0], cnt = 0;
+        for (int i = 0; i < n; i++) {
+            if (nums[i] == num) {
+                cnt++;
+            } else {
+                total.push_back({num, cnt});
+                num = nums[i];
+                cnt = 1;
+            }
+            if (i == n - 1) {
+                total.push_back({num, cnt});
+            }
+        }
+        i64 repeat = 0;
+        for (int i = 0; i < total.size(); i++) {
+            i64 m = lcm(total[i].first, k) / total[i].first;
+            i64 l = total[i].second / m;
+            repeat += l * total[i].second - (m * l * (l + 1) / 2);
+        }
+        ans -= repeat;
+        return ans;
+    }
+};
+```
+
+时间复杂度：$O(nlog(max(nums_i, k))$，其中$log(max(nums_i, k))$是计算最小公约数的时间
+
 ## 3728. 边界与内部和相等的稳定子数组（2025.10.26）
 
 [原题链接](https://leetcode.cn/problems/stable-subarrays-with-equal-boundary-and-interior-sum/description/)

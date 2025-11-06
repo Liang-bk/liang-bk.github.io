@@ -648,6 +648,7 @@ public interface UserMapper {
     // 当函数有多个参数时需要使用@Param注解为对应的参数起名， 且与#{}中一致
     @Select("select * from user where username = #{username} and password = #{password}")
     public User findByUsernameAndPassword(@Param("username") String username, @Param("password") String password);
+    
     // 查询结果会被自动封装到User实体类中
     // 多行结果可以使用List接收
 }
@@ -675,9 +676,282 @@ xml文件中的SQL语句写法和注解相同，使用`#{}`来代表参数占位
 
 ## RESTful
 
+一种规范
+
 URL定位资源
 
 HTTP请求方法描述操作（`GET`/`DELETE`,`POST`,`PUT`），分别为查删增改
+
+## 实战
+
+### 日志
+
+
+
+### Controller
+
+**使用不同HTTP方法请求**
+
+```java
+// 处理方法上
+// @RequestMapping(value = "/depts", method = RequestMethod.GET)
+@GetMapping("/depts")
+```
+
+
+
+**路由分组**（在Controller类上使用`@RequestMapping`注解，类中的所有方法都是以该路径为前缀）：
+
+```java
+@RequestMapping("/depts")
+@RestController
+public class DeptController {
+    ...
+    // 相当于/depts/{id}
+    @GetMapping("/{id}")
+    public Result getInfo() {
+        ...
+    }
+}
+```
+
+
+
+**接收简单参数：**
+
+`/xxx?id=1`
+
+使用`@RequestParam`注解，带参数名（该参数名和方法参数名相同则可以省略）
+
+`required`属性可设置为false，表示默认不需要
+
+`defaultValue`属性设置默认值
+
+```java
+@DeleteMapping("/depts")
+public Result deleteById(@RequestParam("id") Integer id) {
+    System.out.println("根据id删除部门：" + id);
+    return Result.success();
+}
+```
+
+
+
+参数过多，封装参数（实体类），在接收参数时直接使用类对象接收：
+
+```java
+package com.itheima.pojo;
+
+import lombok.Data;
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.LocalDate;
+
+@Data
+public class EmpQueryParam {
+    
+    private Integer page = 1; //页码
+    private Integer pageSize = 10; //每页展示记录数
+    private String name; //姓名
+    private Integer gender; //性别
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    private LocalDate begin; //入职开始时间
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    private LocalDate end; //入职结束时间
+    
+}
+```
+
+
+
+**接收请求体数据**
+
+POST发送json数据，使用`@RequestBody`注解，并指定实体对象来接收，POST请求体的key要和对象内部变量名对应
+
+```java
+@PostMapping("/depts")
+public Result add(@RequestBody Dept dept) {
+    System.out.println("添加部门：" + dept.getName());
+    deptService.addDept(dept);
+    return Result.success();
+}
+```
+
+
+
+**接收路径参数**
+
+类似`/depts/1`，使用`@PathVariable`注解（参数名和方法参数名相同可省略）：
+
+```java
+@GetMapping("/depts/{id}")
+public Result getInfo(@PathVariable("id") Integer id) {
+    System.out.println("根据id查询部门数据：" + id);
+    Dept dept = deptService.getInfo(id);
+    return Result.success(dept);
+}
+```
+
+
+
+
+
+### Service
+
+**事务控制**
+
+本质是一组sql操作的集合，要成功都成功，有一个失败就全部失败
+
+```mysql
+-- 启动事务
+start transaction; /begin;
+insert ...
+insert ...
+-- 提交
+commit;
+-- 失败就回滚
+rollback;
+```
+
+Spring的事务管理通常在Service层中，因为Dao层的操作都是针对单条SQL语句
+
+使用`@Transactional`注解（业务层的方法，类，接口上都可以使用，范围从小到大分别是方法，类，接口）
+
+事务管理日志配置：
+
+```yaml
+#spring事务管理日志
+logging: 
+  level: 
+    org.springframework.jdbc.support.JdbcTransactionManager: debug
+```
+
+
+
+**异常回滚机制**
+
+一般只有RuntimeException才会回滚事务
+
+使用`@Transactional(rollbackFor = Exception.class)`可以指定出现何种异常类型时回滚事务
+
+
+
+**事务传播**
+
+一个事务里面执行另外一个事务时（比如service的一个方法调用另一个方法）
+
+默认将新事务看做旧事务的一部分（新旧事务任一执行失败就全部失败）
+
+在新事务上指定`@Transactional(propagation = Propagation.REQUIRES_NEW)`属性，旧事务和新事务会被看做两个独立的事务
+
+
+
+### Dao
+
+使用Mybatis查询返回的结果会被自动封装到定义的实体类中，但需要各个字段名一致，不一致有以下三种解决办法：
+
+1. 使用`@Results`注解：
+
+   ```java
+   @Results({
+       @Result(column = "create_time", property = "createTime"),
+       @Result(column = "update_time", property = "updateTime")
+   })
+   @Select("select id, name, create_time, update_time from dept order by update_time desc")
+   List<Dept> findAll();
+   ```
+
+2. 在SQL语句中为字段取别名：
+
+   ```java
+   @Select("select id, name, create_time as createTime, update_time as updateTime from dept order by update_time desc")
+   List<Dept> findAll();
+   ```
+
+3. 配置中开启驼峰命名转化：
+
+   ```yaml
+   mybatis:
+     configuration:
+       map-underscore-to-camel-case: true
+   ```
+
+   
+
+pagehelper插件：
+
+```xml
+<!--分页插件PageHelper-->
+<dependency>
+    <groupId>com.github.pagehelper</groupId>
+    <artifactId>pagehelper-spring-boot-starter</artifactId>
+    <version>1.4.7</version>
+</dependency>
+```
+
+PageHelper只会对紧跟在其后的第一条SQL语句进行分页处理：
+
+```java
+@Override
+public PageResult page(Integer page, Integer pageSize) {
+    //1. 设置分页参数
+    PageHelper.startPage(page,pageSize);
+
+    //2. 执行查询
+    List<Emp> empList = empMapper.list();
+    Page<Emp> p = (Page<Emp>) empList;
+
+    //3. 封装结果
+    return new PageResult(p.getTotal(), p.getResult());
+}
+```
+
+
+
+主键返回
+
+
+
+mapper映射文件
+
+`namespace`：与mapper所在类文件同名
+
+`<select>`：标签，标识查询语句
+
+​	`id`：类文件中的方法名
+
+​	`resultType`：实体类
+
+`<where>`：标签，表述where条件，并去除多余的and和or
+
+`<if>`：标签，当`test`条件为真时使用内部语句，否则不使用
+
+`<foreach>`：标签，遍历collection
+
+```xml
+<!--定义Mapper映射文件的约束和基本结构-->
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.itheima.mapper.EmpMapper">
+    <select id="list" resultType="com.itheima.pojo.Emp">
+        select e.*, d.name deptName from emp as e left join dept as d on e.dept_id = d.id
+        <where>
+            <if test="name != null and name != ''">
+                e.name like concat('%',#{name},'%')
+            </if>
+            <if test="gender != null">
+                and e.gender = #{gender}
+            </if>
+            <if test="begin != null and end != null">
+                and e.entry_date between #{begin} and #{end}
+            </if>
+        </where>
+    </select>
+</mapper>
+```
+
+### JWT
 
 
 
