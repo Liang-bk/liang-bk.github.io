@@ -104,13 +104,5 @@ export default defineConfig({
   },
   experimental: {
     contentIntellisense: true
-  },
-  vite: {
-    plugins: [
-      //   visualizer({
-      //     emitFile: true,
-      //     filename: 'stats.html'
-      //   })
-    ]
   }
 })
