@@ -404,7 +404,7 @@ public class UserController {
      }
      ```
 
-   - 使用`@Qualifier`注解变量或构造函数表明使用哪个实现类
+   - **要使用不同的实现**：使用`@Qualifier`注解变量或构造函数表明使用哪个实现类
 
      ```java
      @Autowired
@@ -632,7 +632,7 @@ spring.datasource.password=1234
 
 #### 使用方法
 
-新建mapper包，定义`Mapper`接口，使用`@Mapper`注解
+新建mapper包（代替三层架构中的dao层），定义`Mapper`接口，使用`@Mapper`注解
 
 ##### 注解
 
@@ -643,6 +643,7 @@ spring.datasource.password=1234
 以查询为例：
 
 ```java
+@Mapper
 public interface UserMapper {
     // #{} 在实际执行时会被替换为 ?
     // 当函数有多个参数时需要使用@Param注解为对应的参数起名， 且与#{}中一致
@@ -678,29 +679,165 @@ xml文件中的SQL语句写法和注解相同，使用`#{}`来代表参数占位
 
 一种规范
 
-URL定位资源
+1. URL定位资源
 
-HTTP请求方法描述操作（`GET`/`DELETE`,`POST`,`PUT`），分别为查删增改
+2. HTTP请求方法描述操作：
+   - `GET`：`select`
+   - `DELETE`：`delete`
+   - `POST`：`insert`
+   - `PUT`：`update`
 
 ## 实战
 
 ### 日志
 
+使用**logback**包（springboot框架自带依赖）
 
+1. 配置文件
+
+   创建`src/main/resources/logback.xml`：
+
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <configuration>
+       <!-- 控制台输出 -->
+       <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+           <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+               <!--格式化输出：%d表示日期，%thread表示线程名，%-5level：级别从左显示5个字符宽度  %msg：日志消息，%n是换行符 -->
+               <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50}-%msg%n</pattern>
+           </encoder>
+       </appender>
+   
+       <!-- 日志输出级别 -->
+       <root level="ALL">
+           <appender-ref ref="STDOUT" />
+       </root>
+   </configuration>
+   ```
+
+   - 输出到控制台/文件：
+
+     ```xml
+     <!-- 控制台输出 -->
+     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+                 <!--格式化输出：%d 表示日期，%thread 表示线程名，%-5level表示级别从左显示5个字符宽度，%msg表示日志消息，%n表示换行符 -->
+                 <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50}-%msg%n</pattern>
+         </encoder>
+     </appender>
+     <!-- 按照每天生成日志文件 -->
+     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+             <!-- 日志文件输出的文件名, %i表示序号 -->
+             <FileNamePattern>D:/tlias-%d{yyyy-MM-dd}-%i.log</FileNamePattern>
+             <!-- 最多保留的历史日志文件数量 -->
+             <MaxHistory>30</MaxHistory>
+             <!-- 最大文件大小，超过这个大小会触发滚动到新文件，默认为 10MB -->
+             <maxFileSize>10MB</maxFileSize>
+         </rollingPolicy>
+     
+         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+             <!--格式化输出：%d 表示日期，%thread 表示线程名，%-5level表示级别从左显示5个字符宽度，%msg表示日志消息，%n表示换行符 -->
+             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50}-%msg%n</pattern>
+         </encoder>
+     </appender>
+     ```
+
+   - 开关配置
+
+     `level`可以为`ALL`，`OFF`，`debug`，`info`，`warn`，`error`
+
+     ```xml
+     <!-- 日志输出级别 -->
+     <root level="ALL">
+         <!--输出到控制台-->
+         <appender-ref ref="STDOUT" />
+         <!--输出到文件-->
+         <appender-ref ref="FILE" />
+     </root>
+     ```
+
+2. 使用日志
+
+   使用`@Slf4j`注解：
+
+   ```java
+   @Slf4j
+   public class DeptController {
+       public Result list(){
+   		log.debug("");
+           log.info("");
+           log.warn("");
+           log.error("");
+           ...;
+       }
+   }
+   ```
+
+### 响应结果封装
+
+```java
+package com.itheima.pojo;
+
+import lombok.Data;
+import java.io.Serializable;
+
+/**
+ * 后端统一返回结果
+ */
+@Data
+public class Result {
+
+    private Integer code; //编码：1成功，0为失败
+    private String msg; //错误信息
+    private Object data; //数据
+
+    public static Result success() {
+        Result result = new Result();
+        result.code = 1;
+        result.msg = "success";
+        return result;
+    }
+
+    public static Result success(Object object) {
+        Result result = new Result();
+        result.data = object;
+        result.code = 1;
+        result.msg = "success";
+        return result;
+    }
+
+    public static Result error(String msg) {
+        Result result = new Result();
+        result.msg = msg;
+        result.code = 0;
+        return result;
+    }
+
+}
+```
 
 ### Controller
 
-**使用不同HTTP方法请求**
+#### 使用不同HTTP方法请求
+
+在方法上增加`@GetMapping`注解，表示仅接受`GET`请求
 
 ```java
-// 处理方法上
+// 两种注解都可以
 // @RequestMapping(value = "/depts", method = RequestMethod.GET)
 @GetMapping("/depts")
 ```
 
+其他请求：
 
+- `PostMapping`
+- `PutMapping`
+- `DeleteMapping`
 
-**路由分组**（在Controller类上使用`@RequestMapping`注解，类中的所有方法都是以该路径为前缀）：
+#### 路由分组
+
+（在**Controller**类上使用`@RequestMapping`注解，类中的所有方法都是以该路径为前缀）：
 
 ```java
 @RequestMapping("/depts")
@@ -717,15 +854,17 @@ public class DeptController {
 
 
 
-**接收简单参数：**
+#### 接收简单参数
 
-`/xxx?id=1`
+**参数形式**：`/xxx?id=1`
 
-使用`@RequestParam`注解，带参数名（该参数名和方法参数名相同则可以省略）
+使用`@RequestParam`注解
 
-`required`属性可设置为false，表示默认不需要
+- 参数名（该参数名和方法参数名相同则可以省略）
 
-`defaultValue`属性设置默认值
+- `required`属性可设置为false，表示默认不需要该参数
+
+- `defaultValue`属性设置默认值
 
 ```java
 @DeleteMapping("/depts")
@@ -763,9 +902,17 @@ public class EmpQueryParam {
 
 
 
-**接收请求体数据**
+#### 接收Json数据
 
-POST发送json数据，使用`@RequestBody`注解，并指定实体对象来接收，POST请求体的key要和对象内部变量名对应
+POST发送json数据：
+
+```json
+{
+    "name": "name"
+}
+```
+
+使用`@RequestBody`注解，并指定实体对象来接收，json数据中的**键名**要和对象内部**成员名**对应
 
 ```java
 @PostMapping("/depts")
@@ -778,9 +925,11 @@ public Result add(@RequestBody Dept dept) {
 
 
 
-**接收路径参数**
+#### 接收路径参数
 
-类似`/depts/1`，使用`@PathVariable`注解（参数名和方法参数名相同可省略）：
+**参数形式**：`/depts/1`
+
+使用`@PathVariable`注解（参数名和方法参数名相同可省略）：
 
 ```java
 @GetMapping("/depts/{id}")
@@ -790,10 +939,6 @@ public Result getInfo(@PathVariable("id") Integer id) {
     return Result.success(dept);
 }
 ```
-
-
-
-
 
 ### Service
 
@@ -847,9 +992,11 @@ logging:
 
 ### Dao
 
-使用Mybatis查询返回的结果会被自动封装到定义的实体类中，但需要各个字段名一致，不一致有以下三种解决办法：
+#### 对查询结果进行数据封装
 
-1. 使用`@Results`注解：
+使用Mybatis查询返回的结果会被自动封装到定义的实体类中，但需要各个字段名一致，如果不一致，有如下三种解决办法：
+
+1. 使用`@Results`注解（`column`表示表列名，`property`表示实体类成员名）：
 
    ```java
    @Results({
@@ -860,14 +1007,14 @@ logging:
    List<Dept> findAll();
    ```
 
-2. 在SQL语句中为字段取别名：
+2. 在SQL语句中为字段取别名（设置为实体类成员名）：
 
    ```java
    @Select("select id, name, create_time as createTime, update_time as updateTime from dept order by update_time desc")
    List<Dept> findAll();
    ```
 
-3. 配置中开启驼峰命名转化：
+3. 配置中开启驼峰命名转化（需要正确命名实体类成员名）：
 
    ```yaml
    mybatis:
@@ -875,7 +1022,39 @@ logging:
        map-underscore-to-camel-case: true
    ```
 
-   
+
+#### 多参数传递对应占位符
+
+重点说一下方法参数是类的情况，同样使用`@Param`注解为入参取名，然后放入SQL语句占位符中
+
+假如参数是两个类对象：
+
+1. 注解写法
+
+   ```java
+   @Mapper
+   public interface UserMapper {
+   	// 访问userInfo的age成员 department的id成员
+       @Select("SELECT * FROM user WHERE info.age = #{userInfo.age} AND dep.id = #{department.id}")
+       User selectUser(@Param("userInfo") UserInfo userInfo,
+                       @Param("department") Department department);
+   }
+   ```
+
+2. xml写法
+
+   ```xml
+   <select id="selectUser" resultType="User">
+       SELECT *
+       FROM user
+       WHERE age = #{userInfo.age}
+         AND dep_id = #{department.id}
+   </select>
+   ```
+
+
+
+
 
 pagehelper插件：
 
