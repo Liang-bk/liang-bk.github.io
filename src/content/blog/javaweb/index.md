@@ -4,7 +4,6 @@ publishDate: '2025-10-20'
 updatedDate: '2025-10-23'
 description: ''
 tags:
-
   - javaweb
   - notes
 language: '中文'
@@ -835,6 +834,8 @@ public class Result {
 - `PutMapping`
 - `DeleteMapping`
 
+
+
 #### 路由分组
 
 （在**Controller**类上使用`@RequestMapping`注解，类中的所有方法都是以该路径为前缀）：
@@ -874,17 +875,10 @@ public Result deleteById(@RequestParam("id") Integer id) {
 }
 ```
 
-
-
-参数过多，封装参数（实体类），在接收参数时直接使用类对象接收：
+如果一次性传递的参数过多，可以将定义实体类封装，在接收参数时直接使用类对象接收（**保证参数名和类成员名一致**）：
 
 ```java
-package com.itheima.pojo;
-
-import lombok.Data;
-import org.springframework.format.annotation.DateTimeFormat;
-import java.time.LocalDate;
-
+// 请求参数类
 @Data
 public class EmpQueryParam {
     
@@ -897,6 +891,14 @@ public class EmpQueryParam {
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDate end; //入职结束时间
     
+}
+
+// 处理请求的方法, 使用类来接收传入的参数
+@GetMapping
+public Result page(EmpQueryParam empQueryParam) {
+    log.info("查询请求参数： {}", empQueryParam);
+    PageResult pageResult = empService.page(empQueryParam);
+    return Result.success(pageResult);
 }
 ```
 
@@ -942,9 +944,9 @@ public Result getInfo(@PathVariable("id") Integer id) {
 
 ### Service
 
-**事务控制**
+#### 事务控制
 
-本质是一组sql操作的集合，要成功都成功，有一个失败就全部失败
+本质是一组SQL操作的集合，要成功都成功，有一个失败就全部失败
 
 ```mysql
 -- 启动事务
@@ -959,9 +961,9 @@ rollback;
 
 Spring的事务管理通常在Service层中，因为Dao层的操作都是针对单条SQL语句
 
-使用`@Transactional`注解（业务层的方法，类，接口上都可以使用，范围从小到大分别是方法，类，接口）
+使用`@Transactional`注解（业务层的方法，类，接口上都可以使用，范围从小到大分别是方法<类<接口）
 
-事务管理日志配置：
+事务管理日志配置（`application.yml`）：
 
 ```yaml
 #spring事务管理日志
@@ -972,23 +974,35 @@ logging:
 
 
 
-**异常回滚机制**
+#### 异常回滚机制
 
-一般只有RuntimeException才会回滚事务
+一般只有RuntimeException（运行时异常）才会回滚事务
 
-使用`@Transactional(rollbackFor = Exception.class)`可以指定出现何种异常类型时回滚事务
+使用`@Transactional(rollbackFor = Exception.class)`可以指定出现何种异常类型时回滚事务（包括编译时异常）
 
+```java
+@Transactional(rollbackFor = Exception.class)
+public void doBusiness() throws Exception {
+    ...
+    throw new IOException("Checked Exception");
+}
 
+```
 
-**事务传播**
+#### 事务传播
 
 一个事务里面执行另外一个事务时（比如service的一个方法调用另一个方法）
 
 默认将新事务看做旧事务的一部分（新旧事务任一执行失败就全部失败）
 
-在新事务上指定`@Transactional(propagation = Propagation.REQUIRES_NEW)`属性，旧事务和新事务会被看做两个独立的事务
+在新事务上指定`@Transactional(propagation = Propagation.REQUIRES_NEW)`属性，原事务和新事务会被看做两个独立的事务
 
+#### 事务四大特性（ACID）
 
+- 原子性（Atomicity）：事务是不可分割的最小单元，要么全部成功，要么全部失败。
+- 一致性（Consistency）：事务完成时，必须使所有的数据都保持一致状态。
+- 隔离性（Isolation）：数据库系统提供的隔离机制，保证事务在不受外部并发操作影响的独立环境下运行。
+- 持久性（Durability）：事务一旦提交或回滚，它对数据库中的数据的改变就是永久的。
 
 ### Dao
 
@@ -1052,59 +1066,98 @@ logging:
    </select>
    ```
 
+#### 查询结果分页
+
+1. 用SQL（三个参数）：
+
+   - count：获取总记录数（用select count(*)）
+   - page：查询的页码
+   - pageSize：每页记录数
+
+   由此可得limit参数`start = (page - 1) * pageSize`，`pageSize`（从第几条记录开始查，查多少条）
+
+2. pagehelper插件（无需手动分页）：
+
+   `pom.xml`引入依赖：
+
+   ```xml
+   <!--分页插件PageHelper-->
+   <dependency>
+       <groupId>com.github.pagehelper</groupId>
+       <artifactId>pagehelper-spring-boot-starter</artifactId>
+       <version>1.4.7</version>
+   </dependency>
+   ```
+
+   查询：
+
+   ```java
+   @Override
+   public PageResult page(Integer page, Integer pageSize) {
+       //1. 设置分页参数
+       PageHelper.startPage(page,pageSize);
+   
+       //2. 执行查询（不带limit的查询实现）
+       List<Emp> empList = empMapper.list();
+       Page<Emp> p = (Page<Emp>) empList;
+   
+       //3. 封装结果
+       return new PageResult(p.getTotal(), p.getResult());
+   }
+   ```
+
+   PageHelper只会对紧跟在其后的第一条SQL语句进行分页处理：
+
+3. 条件分页
+
+   即在SQL语句中使用条件模糊匹配，继续复用pagehelper
 
 
 
 
-pagehelper插件：
 
-```xml
-<!--分页插件PageHelper-->
-<dependency>
-    <groupId>com.github.pagehelper</groupId>
-    <artifactId>pagehelper-spring-boot-starter</artifactId>
-    <version>1.4.7</version>
-</dependency>
-```
 
-PageHelper只会对紧跟在其后的第一条SQL语句进行分页处理：
+
+#### 主键返回功能
+
+Mybatis提供，执行`insert`语句后，自动将生成的主键封装回数据：
+
+使用`Options`注解，`keyProperty`属性标识封装回`emp`的成员名称，插入语句完成后会将`id`封装回`emp`对象中
 
 ```java
-@Override
-public PageResult page(Integer page, Integer pageSize) {
-    //1. 设置分页参数
-    PageHelper.startPage(page,pageSize);
-
-    //2. 执行查询
-    List<Emp> empList = empMapper.list();
-    Page<Emp> p = (Page<Emp>) empList;
-
-    //3. 封装结果
-    return new PageResult(p.getTotal(), p.getResult());
-}
+@Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
+@Insert("insert into emp(username, name, gender, phone, job, salary, image, entry_date, dept_id, create_time, update_time) " +
+        "values (#{username},#{name},#{gender},#{phone},#{job},#{salary},#{image},#{entryDate},#{deptId},#{createTime},#{updateTime})")
+void insert(Emp emp);
 ```
 
+#### mapper xml文件标签
 
+1. 基本标签：
 
-主键返回
+   - `<mapper>`标签：
+     - `namespace`：值是java文件中定义的mapper类路径
 
+   - `<select>`标签，标识查询语句
+     - `id`：值是类中的方法名
+     - `resultType`：值为实体类名，表示查询结果被封装到对应实体类
 
+2. 作用标签：
 
-mapper映射文件
+   - `<where>`标签，表述SQL中的`where`条件，并去除最终语句中多余的`and`和`or`关键字
+   - `<set>`标签，表示SQL中的`set`关键字，设置值并去除最终语句中多余的`,`
 
-`namespace`：与mapper所在类文件同名
+   - `<if>`标签，当`test`条件为真时使用定义的SQL语句，否则不使用
 
-`<select>`：标签，标识查询语句
+   - `<foreach>`标签，遍历`collection`
 
-​	`id`：类文件中的方法名
+3. 结果标签：
 
-​	`resultType`：实体类
+   - `<resultMap>`标签：一对多查询（一个表的一条记录对应另一个表的多个记录）使用
 
-`<where>`：标签，表述where条件，并去除多余的and和or
+4. 
 
-`<if>`：标签，当`test`条件为真时使用内部语句，否则不使用
-
-`<foreach>`：标签，遍历collection
+##### select + where + if
 
 ```xml
 <!--定义Mapper映射文件的约束和基本结构-->
@@ -1129,6 +1182,127 @@ mapper映射文件
     </select>
 </mapper>
 ```
+
+##### insert + foreach
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.itheima.mapper.EmpExprMapper">
+
+    <!--批量插入员工工作经历信息-->
+    <insert id="insertBatch">
+        insert into emp_expr (emp_id, begin, end, company, job) values
+        <foreach collection="exprList" item="expr" separator=",">
+            (#{expr.empId}, #{expr.begin}, #{expr.end}, #{expr.company}, #{expr.job})
+        </foreach>
+    </insert>
+
+</mapper>
+```
+
+- collection：集合名称
+
+- item：集合遍历出来的元素/项
+
+- separator：每一次遍历使用的分隔符
+
+- open：遍历开始前要拼接的字符串
+
+- close：遍历结束后要拼接的字符串
+
+##### select + resultMap
+
+一个员工信息对应多条工作经历
+
+```xml
+<!--自定义结果集ResultMap-->
+<resultMap id="empResultMap" type="com.itheima.pojo.Emp">
+    <!--封装员工信息-->
+    <id column="id" property="id" />
+    <result column="username" property="username" />
+    <result column="password" property="password" />
+    <result column="name" property="name" />
+    <result column="gender" property="gender" />
+    <result column="phone" property="phone" />
+    <result column="job" property="job" />
+    <result column="salary" property="salary" />
+    <result column="image" property="image" />
+    <result column="entry_date" property="entryDate" />
+    <result column="dept_id" property="deptId" />
+    <result column="create_time" property="createTime" />
+    <result column="update_time" property="updateTime" />
+
+    <!--封装exprList-->
+    <collection property="exprList" ofType="com.itheima.pojo.EmpExpr">
+        <id column="ee_id" property="id"/>
+        <result column="ee_company" property="company"/>
+        <result column="ee_job" property="job"/>
+        <result column="ee_begin" property="begin"/>
+        <result column="ee_end" property="end"/>
+        <result column="ee_empid" property="empId"/>
+    </collection>
+</resultMap>
+
+<!--根据ID查询员工的详细信息-->
+<select id="getById" resultMap="empResultMap">
+    select e.*,
+        ee.id ee_id,
+        ee.emp_id ee_empid,
+        ee.begin ee_begin,
+        ee.end ee_end,
+        ee.company ee_company,
+        ee.job ee_job
+    from emp e left join emp_expr ee on e.id = ee.emp_id
+    where e.id = #{id}
+</select>
+```
+
+##### update + set
+
+```xml
+<!--根据ID更新员工信息-->
+<update id="updateById">
+    update emp
+    <set>
+        <if test="username != null and username != ''">username = #{username},</if>
+        <if test="password != null and password != ''">password = #{password},</if>
+        <if test="name != null and name != ''">name = #{name},</if>
+        <if test="gender != null">gender = #{gender},</if>
+        <if test="phone != null and phone != ''">phone = #{phone},</if>
+        <if test="job != null">job = #{job},</if>
+        <if test="salary != null">salary = #{salary},</if>
+        <if test="image != null and image != ''">image = #{image},</if>
+        <if test="entryDate != null">entry_date = #{entryDate},</if>
+        <if test="deptId != null">dept_id = #{deptId},</if>
+        <if test="updateTime != null">update_time = #{updateTime},</if>
+    </set>
+    where id = #{id}
+</update>
+```
+
+#### 全局异常处理器
+
+- 定义一个异常处理类，使用注解`@RestControllerAdvice`，代表定义了全局异常处理器
+- 在类中，定义一个方法来捕获异常：使用注解`@ExceptionHandler`。通过`@ExceptionHandler`注解当中的value属性来指定我们要捕获的是哪一类型的异常。
+
+```java
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    
+    //处理异常
+    @ExceptionHandler
+    public Result ex(Exception e){//方法形参中指定能够处理的异常类型
+        e.printStackTrace();//打印堆栈中的异常信息
+        //捕获到异常之后，响应一个标准的Result
+        return Result.error("对不起,操作失败,请联系管理员");
+    }
+}
+```
+
+
 
 ### JWT
 
