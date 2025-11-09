@@ -1,7 +1,7 @@
 ---
 title: 'javaweb 笔记'
 publishDate: '2025-10-20'
-updatedDate: '2025-10-23'
+updatedDate: '2025-11-09'
 description: ''
 tags:
   - javaweb
@@ -1302,9 +1302,263 @@ public class GlobalExceptionHandler {
 }
 ```
 
+### 校验
+
+#### JWT
+
+HTTP无状态，多次请求-响应之间独立
+
+为了让同一会话之间的多次请求之间共享数据（比如是否已经登录）：
+
+1. Cookie：服务器下发，客户端保存
+
+   ```java
+   // 先请求/c1，再请求/c2，c2就能拿到c1下发的cookie
+   @Slf4j
+   @RestController
+   public class SessionController {
+   
+       //设置Cookie
+       @GetMapping("/c1")
+       public Result cookie1(HttpServletResponse response){
+           response.addCookie(new Cookie("login_username","itheima")); //设置Cookie/响应Cookie
+           return Result.success();
+       }
+           
+       //获取Cookie
+       @GetMapping("/c2")
+       public Result cookie2(HttpServletRequest request){
+           Cookie[] cookies = request.getCookies();
+           for (Cookie cookie : cookies) {
+               if(cookie.getName().equals("login_username")){
+                   System.out.println("login_username: "+cookie.getValue()); //输出name为login_username的cookie
+               }
+           }
+           return Result.success();
+       }
+   }    
+   ```
+
+   **缺点**：
+
+   - 移动端APP不适用
+   - 客户端明文存储，不安全，且用户可禁用Cookie
+   - 不支持跨域
+
+2. Session：Cookie升级版，服务器下发，服务器存储
+
+   ```java
+   // 请求/s1，如果是初次请求，就生成session id，设置在cookie返回给客户端
+   // 再请求/s2，通过客户端传来的session id，服务器找到对应的session
+   // 从session中取数据
+   
+   @Slf4j
+   @RestController
+   public class SessionController {
+   
+       @GetMapping("/s1")
+       public Result session1(HttpSession session){
+           log.info("HttpSession-s1: {}", session.hashCode());
+   
+           session.setAttribute("loginUser", "tom"); //往session中存储数据
+           return Result.success();
+       }
+   
+       @GetMapping("/s2")
+       public Result session2(HttpServletRequest request){
+           HttpSession session = request.getSession();
+           log.info("HttpSession-s2: {}", session.hashCode());
+   
+           Object loginUser = session.getAttribute("loginUser"); //从session中获取数据
+           log.info("loginUser: {}", loginUser);
+           return Result.success(loginUser);
+       }
+   }
+   ```
+
+   **缺点**：
+
+   - 服务器集群不能使用
+   - 客户端可以禁用Cookie，使Session无效
+   - 移动端APP不能用
+   - 不能跨域
 
 
-### JWT
+
+**jwt令牌技术**
+
+服务器生成一个字符串（包含共享信息），下发给客户端，客户端可以自己选择存储方式
+
+当客户端需要使用这些共享信息，就在请求中附加该字符串，由服务器验证是否有效
+
+- 支持PC、移动端
+- 支持集群使用
+- 减轻服务器存储压力
+
+##### 组成
+
+- Header(头）， 记录令牌类型、签名算法等。 例如：{"alg":"HS256","type":"JWT"}
+- Payload(有效载荷），携带一些自定义信息、默认信息等。 例如：{"id":"1","username":"Tom"}
+- Signature(签名），防止Token被篡改、确保安全性。将header、payload，并加入指定秘钥，通过指定签名算法计算而来。
+
+##### 生成
+
+1. 引入依赖：
+
+   ```xml
+   <!-- JWT依赖-->
+   <dependency>
+       <groupId>io.jsonwebtoken</groupId>
+       <artifactId>jjwt</artifactId>
+       <version>0.9.1</version>
+   </dependency>
+   ```
+
+2. 生成
+
+   ```java
+   // claims是jwt中的payload部分，即共享信息，使用map存储
+   // signWith(algo, key)，指定哈希算法生成签名，并指定密钥
+   // addClaims(claims) 添加负载
+   // setExpiration() 设置过期时间
+   // compact() 生成对应字符串
+   @Test
+   public void testGenJwt() {
+       Map<String, Object> claims = new HashMap<>();
+       claims.put("id", 10);
+       claims.put("username", "itheima");
+   
+       String jwt = Jwts.builder().signWith(SignatureAlgorithm.HS256, "aXRjYXN0")
+           .addClaims(claims)
+           .setExpiration(new Date(System.currentTimeMillis() + 12 * 3600 * 1000))
+           .compact();
+   
+       System.out.println(jwt);
+   }
+   ```
+
+##### 校验
+
+需要使用生成时同样的密钥来做校验
+
+对字符串进行了篡改或令牌失效都会导致校验失败（报异常）
+
+```java
+@Test
+public void testParseJwt() {
+    Claims claims = Jwts.parser().setSigningKey("aXRjYXN0")
+        .parseClaimsJws("eyJhbGciOiJIUzI1NiJ9.eyJpZCI6MTAsInVzZXJuYW1lIjoiaXRoZWltYSIsImV4cCI6MTcwMTkwOTAxNX0.N-MD6DmoeIIY5lB5z73UFLN9u7veppx1K5_N_jS9Yko")
+        .getBody();
+    System.out.println(claims);
+}
+```
+
+#### 过滤器 Filter
+
+拦截请求（所有发送的请求，包括对静态资源的请求），不属于Spring组件
+
+1. 定义：
+
+   - 类上使用`@WebFilter(urlPatterns = "")`注解，附带要拦截的请求路径
+
+   - 实现`Filter`接口
+
+   ```java
+   @WebFilter(urlPatterns = "/*") //配置过滤器要拦截的请求路径（ /* 表示拦截浏览器的所有请求 ）
+   public class DemoFilter implements Filter {
+       //初始化方法, web服务器启动, 创建Filter实例时调用, 只调用一次
+       public void init(FilterConfig filterConfig) throws ServletException {
+           System.out.println("init ...");
+       }
+   
+       //拦截到请求时,调用该方法,可以调用多次
+       public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain chain) throws IOException, ServletException {
+           System.out.println("拦截到了请求...");
+       }
+   
+       //销毁方法, web服务器关闭时调用, 只调用一次
+       public void destroy() {
+           System.out.println("destroy ... ");
+       }
+   }
+   ```
+
+2. Springboot启动类上添加`@ServletComponentScan`注解
+
+- 拦截后放行：`chain.doFilter(request, response); return;`
+- 拦截后不放行：`response.setStatus(); return;`
+
+- `@WebFilter(urlPatterns = "")`注解配置拦截路径，前缀不同的拦截路径不会同时发挥作用：
+
+  比如`/dept`和`/login`，请求`/dept`不会触发`/login`的拦截器
+
+- 前缀相同的拦截器的执行顺序：比如`/*`和`/login`，默认按类名排序（字典序靠前就先执行），手动配置需要xml文件
+
+#### 拦截器 Interceptor
+
+- Spring组件，可直接注入
+
+- 只拦截`Controller`请求
+
+- 定义（新建`interceptor`包）：
+
+  - 实现`HandlerInterceptor`接口，并重写方法：
+
+    ```java
+    //自定义拦截器
+    @Component
+    public class DemoInterceptor implements HandlerInterceptor {
+        //目标资源方法执行前执行。 返回true：放行    返回false：不放行
+        @Override
+        public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+            System.out.println("preHandle .... ");
+            
+            return true; //true表示放行
+        }
+    
+        //目标资源方法执行后执行
+        @Override
+        public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+            System.out.println("postHandle ... ");
+        }
+    
+        //视图渲染完毕后执行，最后执行
+        @Override
+        public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+            System.out.println("afterCompletion .... ");
+        }
+    }
+    ```
+
+  - `interceptor`包上级目录创建`WebConfig`类，实现`WebMvcConfigurer`接口：
+
+    ```java
+    @Configuration  
+    public class WebConfig implements WebMvcConfigurer {
+    
+        //自定义的拦截器对象
+        @Autowired
+        private DemoInterceptor demoInterceptor;
+    
+        
+        @Override
+        public void addInterceptors(InterceptorRegistry registry) {
+           //注册自定义拦截器对象
+            registry.addInterceptor(demoInterceptor).addPathPatterns("/**");//设置拦截器拦截的请求路径（ /** 表示拦截所有请求）
+        }
+    }
+    ```
+
+- 拦截路径：`addPathPatterns("url")`
+- 不拦截路径：`excludePathPatterns("url")`
+
+### AOP
+
+### SpringBoot
+
+
+
+
 
 
 
