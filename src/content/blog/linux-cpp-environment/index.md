@@ -21,7 +21,7 @@ language: '中文'
 
 ## 源配置
 
-在配置llvm组件之前，要下载**gcc/g++**（原因是clang/clang++在linux和win下需要借助gcc/msvc的文件，只有在mac环境下不需要），这里的源配置主要针对需要下载高等级的gcc版本
+如果要配置多编译器环境或者更想用**gcc/g++**，这里的源配置主要针对需要下载高等级的gcc版本
 
 由于一些低版本的ubuntu（如22）默认下载gcc11版本，如果想要下载更高的版本，12以及往上，可以使用下面两条命令：
 
@@ -140,7 +140,7 @@ sudo ./llvm.sh all -m https://mirrors.tuna.tsinghua.edu.cn/llvm-apt
 sudo apt-get install libc++-20-dev libc++abi-20-dev
 ```
 
-这样就安装好了llvm全套（`clang/clang++/clangd/lldb`）和`libstdc++`
+这样就安装好了llvm全套（`clang/clang++/clangd/lldb`）和`libc++`
 
 ## cmake配置
 
@@ -199,7 +199,7 @@ CompileFlags:
 
 项目的文件在`#include<string>`时不会爆红，如果进入系统`string`头文件后就会莫名其妙出现一堆`file not found with <angled> include;`的错误，**不影响库使用，也不影响编译和运行**
 
-#### config.yaml配置
+#### config.yaml配置（针对clang++）
 
 如果有强迫症，可以在`~/.config/clangd/`目录下（没有中间目录就创建）创建`config.yaml`文件，并填入：
 
