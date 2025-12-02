@@ -1,7 +1,7 @@
 ---
 title: 'linux环境下cmake + clangd + lldb搭建cpp开发环境'
 publishDate: '2025-11-03'
-updatedDate: '2025-11-04'
+updatedDate: '2025-12-02'
 description: '快速搭建现代cpp环境'
 tags:
   - modern c++
@@ -11,7 +11,7 @@ language: '中文'
 
 # linux环境下cmake + clangd + lldb搭建cpp开发环境
 
-## 基础环境
+## 一. 基础环境
 
 - wsl2
 - ubuntu22
@@ -19,7 +19,7 @@ language: '中文'
 
 以上均可（其他没试过，不过理论上都可以）
 
-## 源配置
+## 二. 源配置
 
 如果要配置多编译器环境或者更想用**gcc/g++**，这里的源配置主要针对需要下载高等级的gcc版本
 
@@ -73,7 +73,7 @@ sudo apt install gcc-12 g++-12
 
 就会快很多了
 
-## gcc/g++版本切换（可选）
+## 三. gcc/g++版本切换（可选）
 
 如果电脑下有多个gcc/g++，想要切换版本，首先查看各个gcc/g++的版本号：
 
@@ -106,7 +106,7 @@ sudo update-alternatives --config gcc
 
 ![](./gcc-choose.png)
 
-## llvm配置
+## 四. llvm配置
 
 国外的网址：[apt llvm](https://apt.llvm.org/)
 
@@ -142,7 +142,7 @@ sudo apt-get install libc++-20-dev libc++abi-20-dev
 
 这样就安装好了llvm全套（`clang/clang++/clangd/lldb`）和`libc++`
 
-## cmake配置
+## 五. cmake配置
 
 不推荐直接从apt下载cmake，版本一般比较旧
 
@@ -150,7 +150,7 @@ sudo apt-get install libc++-20-dev libc++abi-20-dev
 
 [ubuntu 22.04环境中cmake安装 - 知乎](https://zhuanlan.zhihu.com/p/694017813)
 
-## vscode配置
+## 六. vscode配置
 
 插件安装列表（自行安装），还有一个Test Explorer UI插件没有截进来：
 
@@ -158,9 +158,9 @@ sudo apt-get install libc++-20-dev libc++abi-20-dev
 
 
 
-### clangd
+### 6.1 clangd
 
-#### clangd path
+#### 6.1.1 clangd path
 
 刚下载完clangd，会弹窗提示没有下载clangd-server，这时候不要点击，直接去clangd设置中：
 
@@ -170,54 +170,32 @@ sudo apt-get install libc++-20-dev libc++abi-20-dev
 
 ![](./clangd-path.png)
 
-#### .clangd配置系统文件寻找路径
+#### 6.1.2 .clangd配置系统文件寻找路径
 
-如果不介意头文件内部爆红的话，直接在项目目录下创建`.clangd`文件，然后填入下面的内容：
+1. 使用clang/clang++头文件
 
-```yaml
-CompileFlags:
-  Add:
-    - "-stdlib=libc++"  # 告诉编译器使用 libc++
-    - "-I/usr/lib/llvm-20/include/c++/v1" # clang++的目录
-    - "-ferror-limit=0"
-  Compiler: clang++-20
-```
+   在项目目录下创建`.clangd`文件，然后填入下面的内容：
 
-如果不使用clang++，只用gcc，可以这么写（不需要配置`-stdlib`，因为linux下默认用`libstdc++`）：
+   ```yaml
+   CompileFlags:
+     Add:
+       - "-stdlib=libc++"  # 主要是这行
+       - "-ferror-limit=0"
+     Compiler: clang++-20
+   ```
 
-```yaml
-CompileFlags:
-  Add:
-    - "-I/usr/include/c++/13"
-    - "-ferror-limit=0"
-  Compiler: g++-13
-```
+2. 使用gcc，可以这么写（不需要配置`-stdlib`，因为linux下默认用`libstdc++`）：
 
-什么是内部爆红？如下图：
+   ```yaml
+   CompileFlags:
+     Add:
+       - "-I/usr/include/c++/13" # 
+       - "-ferror-limit=0"
+     Compiler: g++-13
 
-![](./clangd-failed-working.png)
+### 6.2 codelldb
 
-项目的文件在`#include<string>`时不会爆红，如果进入系统`string`头文件后就会莫名其妙出现一堆`file not found with <angled> include;`的错误，**不影响库使用，也不影响编译和运行**
-
-#### config.yaml配置（针对clang++）
-
-如果有强迫症，可以在`~/.config/clangd/`目录下（没有中间目录就创建）创建`config.yaml`文件，并填入：
-
-```yaml
-CompileFlags:
-  Add:
-    - "I/usr/lib/llvm-20/include/c++/v1"
-    - "-stdlib=libc++"
-    - "-ferror-limit=0"
-```
-
-同时不在项目中配置`.clangd`文件（缺点是clangd对所有的项目都会使用clang++的目录分析了，要改必须去`~/.config/clangd/config.yaml`中改）
-
-至此，clangd的配置就完成了一半
-
-### codelldb
-
-#### 安装vsix
+#### 6.2.1 安装vsix
 
 下载插件后，可能会报错，弹窗`open ... url`，点击后在浏览器下载一个`.vsix`文件
 
@@ -225,7 +203,7 @@ CompileFlags:
 
 ![](./codelldb-install.png)
 
-#### 调试
+#### 6.2.2 调试
 
 配置好cmake tools之前的cmake项
 
@@ -252,22 +230,22 @@ CompileFlags:
 
 把`"program"`项换为可执行文件的位置，就可以正常调试了
 
-### cmake
+### 6.3 cmake
 
-#### cmake path
+#### 6.3.1 cmake path
 
 在CMake插件中的设置中，找到`Cmake: Cmake Path`选项，设置为cmake的可执行文件路径：
 
 ![](./cmake-path.png)
 
-#### cmake快速创建项目
+#### 6.3.2 cmake快速创建项目
 
 - 创建一个文件夹，然后使用vscode打开
 - `Ctrl + Shift + P`唤出命令面板
 - 输入`cmake:quick`，找到`CMake: Quick Start`
 - 按提示步骤完成剩余操作
 
-#### CMAKE_EXPORT_COMPILE_COMMANDS
+#### 6.3.3 CMAKE_EXPORT_COMPILE_COMMANDS
 
 使用`git`下载一个cmake项目，比如`fmt: git clone https://github.com/fmtlib/fmt.git`
 
@@ -282,7 +260,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 至此，clangd应该能够正常工作了
 
-#### cmake tools
+#### 6.3.4 cmake tools
 
 使用过clion和vs2022都清楚有比较方便的切换启动哪个可执行程序的功能，借助cmake tools插件，可以做到这一点，修改`launch.json`（主要是`"program"`项）：
 
@@ -309,7 +287,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 ![](./cmake-tools-auto.png)
 
-### unit-test
+### 6.4 unit-test
 
 安装`C++ TestMate`和`Test Explorer UI`后，在左侧测试按钮中可以进行对应的测试：
 
@@ -321,13 +299,234 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 ![](./test-name.png)
 
-## windows下环境配置
+## 七. windows下环境配置
 
 请参考[VSCode C/C++开发环境配置 Clang/LLVM+LLDB+CMake](https://www.ispellbook.com/post/VSCodeCppDevConfig)
 
-## 常见问题
+windows上使用lldb和msvc stl只能看到stl组件的地址，看不到内容，建议直接使用cmake-tools自带的cppdbg，或者用lldb配合MinGW使用，个人认为window上还是直接用msvc工具链比较好
 
-### codelldb调试无法正常显示STL内容
+## 八. vcpkg配置
+
+### 8.1 下载与环境配置
+
+下载：
+
+```bash
+git clone https://github.com/microsoft/vcpkg.git # 克隆仓库
+cd vcpkg
+./bootstrap-vcpkg.sh # Linux bash
+```
+
+环境配置：
+
+在`~/.bashrc`文件最后添加：
+
+```bash
+export VCPKG_ROOT=/path/to/vcpkg # vcpkg文件夹的实际路径
+export PATH=$VCPKG_ROOT:$PATH
+```
+
+### 8.2 案例
+
+1. 创建vcpkg依赖
+
+   ```bash
+   mkdir vcpkg_test && cd vcpkg_test
+   vcpkg new --application # 初始化vcpkg项目
+   vcpkg add port fmt # 添加 fmt 依赖项
+   ```
+
+2. 创建cmake项目
+
+   `Ctrl` + `Shift` + `P`唤出vscode命令行，使用`CMake: Quick Start`创建cmake项目 
+
+3. 设置`CMakePresets.json`
+
+   项目目录创建`CMakePresets.json`
+
+   ```json
+   {
+       "version": 2,
+       "configurePresets": [
+           {
+               "name": "vcpkg",
+               "generator": "Ninja",
+               "binaryDir": "${sourceDir}/build",
+               "cacheVariables": {
+                   "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+               },
+           }
+       ]
+   }
+   ```
+
+   如有需要可以再创建`CMakeUserPresets.json`
+
+   ```json
+   {
+       "version": 2,
+       "configurePresets": [
+           {
+               "name": "default",
+               "inherits": "vcpkg",
+               "environment": {
+                   "VCPKG_ROOT": "" // 填vcpkg的实际路径
+               }
+           }
+       ]
+   }
+   ```
+
+4. 此时可以在CMake-Tools提供的配置中选择对应的配置：
+
+   ![](./CMake-tools-configuration.png)
+
+5. `CMakeLists.txt`，`main.cpp`
+
+   ```cmake
+   cmake_minimum_required(VERSION 3.10)
+   
+   project(Helloworld)
+   # 生成 compile_commands.json
+   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+   # 设置链接标志
+   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
+   find_package(fmt CONFIG REQUIRED) # 指定vcpkg的查找的库
+   
+   add_executable(Helloworld helloworld.cpp)
+   
+   target_link_libraries(Helloworld PRIVATE fmt::fmt)
+   ```
+
+   ```c++
+   #include <fmt/core.h>
+   int main()
+   {
+       fmt::print("Hello World!\n");
+       return 0;
+   }
+   ```
+
+6. 编译即可
+
+如果要下载到全局可以直接：
+
+`vcpkg install fmt`
+
+路径在：
+
+`xxx/vcpkg/installed/x64-linux`
+
+如果要让clangd解析到对应的头文件，需要额外配置.clangd
+
+```yaml
+CompileFlags:
+  Add:
+    - "-I/usr/include/c++/13" #
+    - "-Isystem/xxx/vcpkg/installed/x64-linux/include"
+    - "-ferror-limit=0"
+  Compiler: g++-13
+```
+
+### 8.3 其他配置
+
+### 8.3.1 适配clang与libc++
+
+vcpkg安装和主动拉取依赖默认用gcc工具链（如果有的话），编译链接也一样
+
+如果要配clang和libc++，需要修改以下几个配置：
+
+1. CC，CXX：
+
+   改一下两个环境变量所指的编译器（在`~/.bashrc`）：
+
+   ```bash
+   export CC=clang-20
+   export CXX=clang++-20
+   ```
+
+2. `CMakePresets.json`，原先写在CMake中的内容，现在要放在该文件里：
+
+   ```json
+   {
+       "version": 2,
+       "configurePresets": [
+           {
+               "name": "vcpkg",
+               "generator": "Ninja",
+               "binaryDir": "${sourceDir}/build",
+               "cacheVariables": {
+                   "VCPKG_TARGET_TRIPLET": "x64-linux-clang-libcxx",
+                   "CMAKE_BUILD_TYPE": "Debug",
+                   "CMAKE_C_COMPILER": "clang-20",
+                   "CMAKE_CXX_COMPILER": "clang++-20",
+                   "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+               },
+               "environment": {
+                   "CC": "clang-20",
+                   "CXX": "clang++-20"
+               }
+           }
+       ]
+   }
+   ```
+
+3. `xxx/vcpkg/triplets/community`中新建`x64-linux-clang-libcxx.cmake`
+
+   ```cmake
+   set(VCPKG_TARGET_ARCHITECTURE x64)
+   set(VCPKG_CRT_LINKAGE dynamic)
+   set(VCPKG_LIBRARY_LINKAGE static)
+   set(VCPKG_CMAKE_SYSTEM_NAME Linux)
+   
+   # 注意：VCPKG_CXX_FLAGS 是会被传入编译器的变量
+   set(VCPKG_C_FLAGS "${VCPKG_C_FLAGS}")
+   set(VCPKG_CXX_FLAGS "${VCPKG_CXX_FLAGS} -stdlib=libc++")
+   set(VCPKG_LINKER_FLAGS "${VCPKG_LINKER_FLAGS} -stdlib=libc++")
+   set(VCPKG_EXE_LINKER_FLAGS "${VCPKG_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
+   
+   ```
+
+   直接用`vcpkg install`命令默认使用`/vcpkg/triplets/x64-linux.cmake`文件
+
+4. 使用`vcpkg install fmt:x64-linux-clang-libcxx`安装对应的包，同样的CMakeLists.txt指定链接标志，见**9.1的解决方案**
+
+### 8.3.2 先找全局再拉依赖
+
+案例中vcpkg的使用方式属于manifest，属于自动下载依赖到项目中，不会去vcpkg的已经安装的包里找，工作模式类似一般CMake项目中的`third_party`文件夹，优点是版本能控制，缺点就是每次修改CMakeLists.txt重新载入的时间就比较长
+
+查了一下好像没办法在这种模式下直接的先找全局包，没找到再拉依赖
+
+问了下gemini给出的答案是：
+
+配置**二进制缓存**。
+
+虽然这依然会在项目下生成 `vcpkg_installed` 目录，但它**不会重新编译**代码，而是直接从缓存（或全局缓存）中拷贝编译好的二进制文件。这是 vcpkg 官方推荐的复用机制。
+
+1. **设置环境变量：** 在你的系统环境变量中添加（或确保默认已启用）：
+
+   Bash
+
+   ```
+   VCPKG_DEFAULT_BINARY_CACHE=<你的缓存路径>
+   # Windows 默认通常在 %LOCALAPPDATA%\vcpkg\archives
+   # Linux/Mac 默认通常在 $HOME/.cache/vcpkg/archives
+   ```
+
+2. **效果：** 当你在全局 `vcpkg install xxx` 时，编译产物会存入 Cache。 当你在项目中 build 时，vcpkg 发现 `vcpkg.json` 需要同样的库（且版本、编译器参数一致），它会直接从 Cache 极速解压到 `vcpkg_installed`，跳过编译过程。
+
+### 8.4 常用指令
+
+- list
+- install
+- remove
+- search
+- update
+
+## 九. 常见问题
+
+### 9.1 codelldb调试无法正常显示STL内容
 
 #### 问题描述
 
@@ -361,9 +560,9 @@ https://github.com/vadimcn/codelldb/issues/707
 ```cmake
 # 设置编译器
 set(CMAKE_CXX_COMPILER clang++-20)
-# 添加编译标志
+# 添加编译标志 库名 libc++.so
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-# 设置链接标志
+# 设置链接标志 库名 libc++abi.so
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
 ```
 
@@ -373,7 +572,7 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
 
 ps：在linux上使用llvm工具链还是不太方便，修改了好多配置，不想折腾还是默认使用g++和gdb比较好
 
-### clangd设置代码补全
+### 9.2 clangd设置代码补全
 
 #### 问题描述
 
