@@ -433,6 +433,12 @@ CompileFlags:
 
 ### 8.3.1 适配clang与libc++
 
+**警告：**
+
+如果不是非使用`libc++`库不可，就不需要下面的内容，直接`CMakePresets.json`里面指定编译器就好了，反正`clang++`和`libstdc++`也能一块用
+
+
+
 vcpkg安装和主动拉取依赖默认用gcc工具链（如果有的话），编译链接也一样
 
 如果要配clang和libc++，需要修改以下几个配置：
@@ -526,7 +532,23 @@ vcpkg安装和主动拉取依赖默认用gcc工具链（如果有的话），编
 
 ## 九. 常见问题
 
-### 9.1 codelldb调试无法正常显示STL内容
+### 9.1 llvm标准库头文件内报错
+
+#### 问题描述
+
+此问题针对强迫症患者，如果你点进去头文件碰到了下面的情况：
+
+![](./clangd-failed-working.png)
+
+那么在项目下配置`.clangd`已经没用了
+
+#### 解决方案
+
+在`~/`目录下新增`.config/clangd/config.yaml`文件，把`.clangd`的内容复制过来
+
+这个全局文件的优先级比项目下`.clangd`要高，所以配置之后项目路径下那个就没用了，至于为什么内容头文件会爆这么多错，搜了一堆也没找到答案，凑活用吧
+
+### 9.2 codelldb调试无法正常显示STL内容
 
 #### 问题描述
 
@@ -539,11 +561,11 @@ struct node {
 int main() {
     node node;
     node.map.insert({1, 1});
-    return 0
+    return 0;
 }
 ```
 
-显示的是：
+在`return 0`处打断点，显示的是：
 
 ![](./code-lldb-bug.png)
 
@@ -553,26 +575,59 @@ int main() {
 
 https://github.com/vadimcn/codelldb/issues/707
 
-插件作者说lldb不能支持MSVC STL，猜测是由于linux下使用g++ STL导致的问题（cmake会默认链接`libstdc++`）
+原因还是llvm工具链的问题，`clang++`，`lldb`，`libc++`对应的是`g++`，`gdb`，`libstdc++`，虽然`llvm`支持使用`libstdc++`做链接，但是多少有些小问题，比如性能上，再比如这个`lldb`不能正确显示`unordered_map`，最新的`llvm-21`中的`lldb`已经把这个问题修复了：
 
-修改`CMakeLists.txt`，使用llvm组件（这些组件在llvm配置时应该就配置完成了）：
+[[lldb] Fix StdUnorderedMapSynthProvider for GCC #164251](https://github.com/llvm/llvm-project/pull/164251)
 
-```cmake
-# 设置编译器
-set(CMAKE_CXX_COMPILER clang++-20)
-# 添加编译标志 库名 libc++.so
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-# 设置链接标志 库名 libc++abi.so
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
-```
+有两种解决办法：
 
-重新编译，再调试：
+1. 修改`CMakeLists.txt`，使用llvm组件（这些组件在llvm配置时应该就配置完成了）：
 
-![](./code-lldb-bug-fixed.png)
+   ```cmake
+   # 设置编译器
+   set(CMAKE_CXX_COMPILER clang++-20)
+   # 添加编译标志 库名 libc++.so
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+   # 设置链接标志 库名 libc++abi.so
+   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
+   ```
+
+   重新编译，再调试：
+
+   ![](./code-lldb-bug-fixed.png)
+
+   这么做会强制程序链接`libc++`库，但是linux上一般会默认链接`libstdc++`，因此每个cmake项目都要搞一遍，尤其是再去配vcpkg环境或者是xmake的项目（默认都是链接`libstdc++`的），都得额外搞一套配置，不然到时候`libstdc++`和`libc++`链接冲突了很难搞，考虑到库切换起来很麻烦，切换编译器很简单（而且兼容），推荐还是用第二种方法
+
+2. 修改本地的lldb formatter，然后改codelldb的后端
+
+   用下面的命令找`gnu_libstdcpp.py`这个文件：
+
+   ```bash
+   find /usr -name "gnu_libstdcpp.py" 2>/dev/null
+   ```
+
+   复制一份备用，然后拉取llvm项目上最新的文件：
+
+   ```bash
+   # 复制一份备用
+   sudo cp /usr/lib/llvm-20/lib/python3.10/site-packages/lldb/formatters/cpp/gnu_libstdcpp.py \
+           /usr/lib/llvm-20/lib/python3.10/site-packages/lldb/formatters/cpp/gnu_libstdcpp.py.bak
+   # 下载github最新文件
+   sudo wget https://raw.githubusercontent.com/llvm/llvm-project/main/lldb/examples/synthetic/gnu_libstdcpp.py \
+             -O /usr/lib/llvm-20/lib/python3.10/site-packages/lldb/formatters/cpp/gnu_libstdcpp.py
+   ```
+
+   vscode修改codelldb，使用本地的lldb：
+
+   - `Ctrl` + `Shift` + `P`
+   - `>LLDB: Use Alternate Backend`
+   - 输入`lldb-<version>`（下哪个版本就用哪个版本）
+
+   codelldb自己会解析后端，完事
 
 ps：在linux上使用llvm工具链还是不太方便，修改了好多配置，不想折腾还是默认使用g++和gdb比较好
 
-### 9.2 clangd设置代码补全
+### 9.3 clangd设置代码补全
 
 #### 问题描述
 
