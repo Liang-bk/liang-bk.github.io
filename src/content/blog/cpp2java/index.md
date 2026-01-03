@@ -4,7 +4,7 @@ publishDate: '2025-10-20'
 updatedDate: '2025-10-25'
 description: 'c++语法快速过渡到java语法'
 tags:
-  - modern c++
+  - c++
   - java
   - tutorial
 language: '中文'
@@ -108,9 +108,9 @@ language: '中文'
 
 ### 2.1 方法重写
 
-java中子类定义与父类相同的方法，**默认是重写行为**
+java中子类定义与父类相同的方法（方法名，形参），**默认是重写行为**
 
-c++中不同，默认是两个不同的方法
+c++中子类与父类相同的方法，默认是两个不同的方法
 
 ### 2.2 super
 
@@ -440,8 +440,6 @@ Arrays.sort(arr, Function1::subtraction);
        
    }
    ```
-
-   
 
 3. 泛型接口
 
@@ -913,7 +911,57 @@ collect(Collector collector); // 转为集合
 
 ## 六. 异常
 
+c++异常一坨，java更成体系，没有类比的必要了，东西也不多，直接记住就好了
 
+![image-20251204215639127](./exception.png)
+
+1. 编译时异常，编译阶段给提示，必须先手动处理
+2. 运行时异常，运行程序可能出现异常
+
+### 6.1 捕获
+
+`catch`支持多级，支持同时捕获多个异常（用`|`分割）
+
+- `e.printStackTrace()`：打印异常堆栈信息
+
+```java
+try {
+    
+} catch (Exception e) {
+    e.printStackTrace();
+} finally {
+    
+}
+```
+
+### 6.2 抛出
+
+- `throws 异常类1, 异常类2`：方法定义后，表示使用方法可能会抛出这些异常
+- `throw 异常`：方法内，手动抛出异常，停止方法运行并将异常返回给调用者
+
+```java
+public void method() throws Exception {
+    throw Exception();
+}
+```
+
+### 6.3 自定义
+
+- 编译时异常，继承`Exception`
+- 运行时异常，继承`RuntimeException`
+
+```java
+public class MyException extends RuntimeException {
+    // 空参
+    public MyException() {
+        
+    }
+    // 带参
+    public MyException(String messgae) {
+        super(message)
+    }
+}
+```
 
 ## 七. IO流
 
@@ -925,3 +973,185 @@ collect(Collector collector); // 转为集合
 
 
 
+## 九. 反射
+
+加载类，并解剖类中的信息
+
+### 9.1 获取Class对象
+
+1. `Class.forName("package.className")`：填全类名
+2. `className.class`：做参数传递
+3. `obj.getClass()`：能创建对象再考虑使用
+
+### 9.2 常用方法
+
+- 获取构造器`Constructor`对象，并利用其构造类对象
+- 获取成员变量`Field`对象，获取/修改类成员变量
+- 获取方法`Method`对象，执行类方法
+
+获取`Constructor`，`Field`，`Method`类型的对象，大部分签名都很类似，挑重点的记：
+
+- `getName`：获取类名
+
+- `getDeclaredConstructors()`：返回可用的`Constructor`数组
+
+  `getDeclaredConstructor(xx1.class, xx2.class)`：返回对应有参的`Constructor`对象
+
+  其他，要获取对应类的成员变量和方法，其get方法也类似上面
+
+1. 使用`Constructor`对象构造原对象
+
+   ```java
+   Class c1 = ArrayList.class;
+   // 获取无参构造器对象（可能是 private，因此使用 getDeclaredConstructor）
+   Constructor con = c1.getDeclaredConstructor();
+   // 临时设置访问权限，使得可以访问 private 构造函数
+   con.setAccessible(true);
+   // 构造对象, 需要强转，因为返回的是 Object
+   ArrayList s1 = (ArrayList) con.newInstance();
+   ```
+
+2. 使用`Field`对象设置/获取类成员变量
+
+   ```java
+   Class c1 = ArrayList.class;
+   // 获取 ArrayList 类中的对应成员变量，例如 "size"
+   Field fieldSize = c1.getDeclaredField("size");
+   // 临时关闭 Java 权限检查
+   fieldSize.setAccessible(true);
+   // arr 是一个 ArrayList 的对象
+   ArrayList arr = new ArrayList();
+   // 设置字段值为指定内容
+   fieldSize.set(arr, 10);
+   // 获取字段值
+   int var = (int) fieldSize.get(arr);
+   System.out.println("size = " + var);
+   ```
+
+3. 使用`Method`对象调用类方法
+
+   ```java
+   Class c1 = String.class;
+   // 获取 private 方法，如 String 中的 "indexOfSupplementary"
+   Method method = c1.getDeclaredMethod("indexOfSupplementary", int.class, int.class);
+   // 开放权限
+   method.setAccessible(true);
+   // 调用方法，需要传入对象和参数
+   String s = "hello";
+   int result = (int) method.invoke(s, 0x10400, 0);
+   System.out.println(result);
+   ```
+
+作用：
+
+- 获取一个类的全部成分然后操作
+- 破坏封装性
+- 绕过泛型，比如在`ArrayList<Integer>`添加`"123"`
+
+- **框架**
+
+## 十. 注解
+
+### 10.1 定义
+
+```java
+public @interface MyAnnotation {
+    public String name1() default "123";
+}
+```
+
+本质是一个接口，自定义注解是继承了`Annotation`接口的接口
+
+1. 使用
+
+   默认情况下可以在类名，方法名，变量名上直接加`@MyAnnotation`使用，这代表接口的一个实现类
+
+2. 要指定里面的属性值就用`@MyAnnotation(name1="", xxx)`，如果注解里面非默认属性只有一个`value`，可以直接把`value=`省略
+
+**元注解**
+
+注解在注解上的注解
+
+形式：
+
+```java
+@Rentention
+@Target
+public @interface MyAnnotation {
+    public String name1() default "123";
+}
+```
+
+1. `Rentention`：声明注解的保留周期
+   - **`@Rentention(RententionPolicy.RUNTIME)`**：一直保留，**常用**
+   - `RententionPolicy.SOURCE`：源码保留
+   - `RententionPolicy.CLASS`：字节码保留
+2. `Target`：限制注解的范围
+   - `@Target(ElementType.Type)`：该注解可以在类和接口上使用
+   - `ElementType.FIELD`：成员变量
+   - `ElementType.METHOD`：成员方法
+   - `ElementType.PARAMETER`：方法参数
+
+### 10.2 解析
+
+利用反射
+
+1. 获取使用注解的类对象
+
+   `Class c1 = Demo.class`
+
+2. 判断对应注解是否存在
+
+   `c1.isAnnotationPresent(MyAnnotation.class)`
+
+3. 获取注解对象并获取其属性值
+
+   `MyAnnotation myan = (MyAnnotation) getDeclaredAnnotation(MyAnnotation.class)`
+
+`Class`，`Method`，`Field`，`Constructor`等都实现了`AnnotatedElement`接口：
+
+```java
+public Annotation[] getDeclaredAnnotations();	// 获取当前对象上的注解
+public T getDeclaredAnnotation(Class<T> annotationClass);	// 获取指定的注解对象
+public boolean isAnnotationPresent(Class<Annotation> annotationClass); // 判断当前对象是否存在某个注解
+```
+
+使用场景：
+
+比如JUnit框架定义的`@Test`，加上就测试，本质就是底层利用反射，看`Method`上是否有`@Test`注解，决定是否`invoke`
+
+## 十一. 动态代理
+
+像是一个包装类，使用非侵入式的形式来对被代理的类增添功能代码（底层使用反射）
+
+核心是`Proxy.newPorxyInstance`，简易代码如下，`invoke`中的`proxy`指的是`T proxy`：
+
+```java
+class ProxyUtil {
+    public static <T> T createProxy(T obj) {
+        T proxy = (T) Proxy.newProxyInstance(ProxyUtil.class.getClassLoader(),
+                obj.getClass().getInterfaces(), new InvocationHandler() {
+                    @Override
+                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                        // do something before method...
+                        Object result = method.invoke(obj, args);
+                        // do something after method...
+                        return result; // return method result
+                    }
+                });
+        return proxy;
+    }
+}
+```
+
+关于`Proxy.newPorxyInstance`：
+
+```java
+public static Object newProxyInstance(ClassLoader loader,
+                                      Class<?>[] interfaces,
+                                      InvocationHandler h)
+```
+
+- `ClassLoader loader`：指定加载代理类的类加载器
+- `Class<?>[] interfaces`：指定代理要实现的接口，一般被代理的类实现哪些，就填哪些
+- `InvocationHandler h`：匿名内部类，在内部指定生成的代理类对象要增加的功能

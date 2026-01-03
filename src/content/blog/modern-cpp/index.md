@@ -10,8 +10,6 @@ language: '中文'
 heroImage: { src: './cpp_icon.png', color: '#B4C6DA' }
 ---
 
-# Modern C++
-
 ## reference（引用）
 
 c++中的引用是一种给变量起别名的方法，类似于指针，原变量和引用将指向同一块内存地址
@@ -550,6 +548,20 @@ class IntPtrManager {
 
   ![](./algo_iterator.png)
 
+## 容器
+
+### vector
+
+### priority_queue
+
+默认是大根堆，需要重载`<`
+
+使用`greater`指定小根堆，需要重载`>`
+
+### map
+
+### unordered_map
+
 ## 自动推导
 
 `decltype`和`auto`是现代c++中的类型推导工具
@@ -564,7 +576,7 @@ class IntPtrManager {
 auto it = nums.begin();
 ```
 
-使用`auto`还可以定义`lambda`表达式，自动推导函数返回类型等...
+使用`auto`还可以定义`lambda`表达式，自动推导函数类型，函数返回类型等...
 
 `auto`会自动推导赋值表达式右侧的类型，类似模板参数`template<typename T>`，二者的推导规则几乎相同
 
@@ -675,15 +687,82 @@ decltype(1 + 2); // 推导为int
 decltype(std::move(i)); // 推导为int&&
 ```
 
+### 函数类型推导
+
+使用`auto`可以推导出迭代器，函数类型等复杂的类型：
+
+```c++
+int add_func(int a, int b) {
+    return a + b;
+}
+
+int main() {
+    auto minus_func = [](int a, int b) { return a - b; };
+
+    std::vector<std::function<decltype(add_func)>> funcVec = {
+        add_func,
+        minus_func
+    };
+
+    funcVec[0](1, 2);
+    funcVec[1](1, 2);
+}
+```
+
+### 函数模板返回值推导
+
+`decltype(auto)`表示使用`decltype`的规则来推导`auto`，当不确定模板的返回值时，使用其可以返回精确的类型
+
+```c++
+template <typename Container, typename Index>
+decltype(auto) get(Container& c, Index i) { // 更简洁！
+    return c[i]; // 如果 c[i] 返回 int&，则函数返回 int&
+}
+```
+
 ## 内存管理
 
+### unique_ptr
 
+### shared_ptr
+
+### weak_ptr
 
 ## 锁与同步
 
+### 读写锁
 
+c++中没有专用的读者-写者锁库，但可以通过`std::shared_mutex`，`std::shared_lock`和`std::unique_lock`来模拟
 
+- `std::shared_mutex`允许**共享锁定**和**独占锁定**
+- `std::shared_lock`以共享的方式来占用一个`std::shared_mutex`（其他线程同样可以使用`std::shared_lock`来获得该锁，但不允许其他线程使用`std::unique_lock`获得锁）
+- `std::unique_lock`以独占的方式来占用一个`std::shared_mutex`（其他线程此时无法获得锁，除非该锁被主动释放）
 
+例：
+
+```c++
+#include <iostream>
+#include <mutex>
+#include <shared_mutex>
+#include <thread>
+
+// 定义一个全局count变量和一个供所有线程使用的shared mutex
+int count = 0;
+std::shared_mutex m;
+
+// 读线程使用std::shared_lock来获得对count变量的只读共享访问，并读取count变量
+// 有意思的点在于只读是人为规定的, 如果某个线程执行了写入, 可能出现一些意想不到的效果
+void read_value() {
+  std::shared_lock lk(m);
+  std::cout << "Reading value " + std::to_string(count) + "\n" << std::flush;
+}
+
+// 这个函数使用std::unique_lock来获得对count变量的独占访问并写入值, 一旦其获得锁, 除非其主动释放, 否则其他线程无法获得锁
+void write_value() {
+  std::unique_lock lk(m);
+  count += 3;
+}
+```
 
 
 

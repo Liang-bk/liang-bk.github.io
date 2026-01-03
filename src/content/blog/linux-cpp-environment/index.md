@@ -4,8 +4,9 @@ publishDate: '2025-11-03'
 updatedDate: '2025-12-02'
 description: '快速搭建现代cpp环境'
 tags:
-  - modern c++
+  - c++
   - tutorial
+  - development environment
 language: '中文' 
 ---
 
@@ -546,7 +547,7 @@ vcpkg安装和主动拉取依赖默认用gcc工具链（如果有的话），编
 
 在`~/`目录下新增`.config/clangd/config.yaml`文件，把`.clangd`的内容复制过来
 
-这个全局文件的优先级比项目下`.clangd`要高，所以配置之后项目路径下那个就没用了，至于为什么内容头文件会爆这么多错，搜了一堆也没找到答案，凑活用吧
+这个全局文件的优先级比项目下`.clangd`要高，所以配置之后项目路径下里面相同的配置会被全局的覆盖掉，所以可以在全局配置配clangd去解析哪个编译器的头文件，然后项目的`.clangd`配置第三方库的头文件。至于为什么内容头文件会爆这么多错，搜了一堆也没找到答案，所以该方法就凑活用吧
 
 ### 9.2 codelldb调试无法正常显示STL内容
 
@@ -623,7 +624,7 @@ https://github.com/vadimcn/codelldb/issues/707
    - `>LLDB: Use Alternate Backend`
    - 输入`lldb-<version>`（下哪个版本就用哪个版本）
 
-   codelldb自己会解析后端，完事
+   codelldb自己会解析后端，完事，之后codelldb会调用本地修改后的lldb来调试，一劳永逸
 
 ps：在linux上使用llvm工具链还是不太方便，修改了好多配置，不想折腾还是默认使用g++和gdb比较好
 

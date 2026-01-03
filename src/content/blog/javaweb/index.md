@@ -320,6 +320,9 @@ Application.java
 
 使用`@Component`和`@Autowired`注解：
 
+- 被`@Component`标注的类，在组件扫描路径内时，会被 Spring 扫描、实例化并注册为 Bean，由容器统一管理生命周期
+- 被`@Autowired`标注的依赖，Spring 会在 Bean 初始化阶段根据类型（必要时根据名字或`@Qualifier`）从容器中查找合适的 Bean 注入进去
+
 ```java
 // IOC: 将对象交给容器管理
 @Component
@@ -833,8 +836,6 @@ public class Result {
 - `PostMapping`
 - `PutMapping`
 - `DeleteMapping`
-
-
 
 #### 路由分组
 
@@ -1498,7 +1499,7 @@ public void testParseJwt() {
 
 - Spring组件，可直接注入
 
-- 只拦截`Controller`请求
+- 只拦截`Controller`层请求
 
 - 定义（新建`interceptor`包）：
 
@@ -1549,12 +1550,199 @@ public void testParseJwt() {
     }
     ```
 
+- 配置类注解`@Configuration`：类上加上该注解表明该类是一个配置类，Springboot程序启动时会自动执行里面的某些方法（在这是实现了`WebMvcConfigurer`的`addInteceptors`方法：注册拦截器以生效）
+
 - 拦截路径：`addPathPatterns("url")`
+
 - 不拦截路径：`excludePathPatterns("url")`
 
 ### AOP
 
+#### 简介
+
+基于动态代理的方法，在不修改原代码的情况下，增强功能
+
+**pom依赖：**
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-aop</artifactId>
+</dependency>
+```
+
+**注解：**
+
+- 类上加`@Aspect`
+
+- 类中方法加`@Around("execution...")`
+
+  在里面通过`ProceedingJoinPoint`对象执行原始方法，并增添新功能
+
+  ```java
+  @Component
+  @Aspect //当前类为切面类
+  @Slf4j
+  public class RecordTimeAspect {
+  	// 代理某个方法
+      @Around("execution(* com.itheima.service.impl.DeptServiceImpl.*(..))")
+      public Object recordTime(ProceedingJoinPoint pjp) throws Throwable {
+          // 执行原始方法之前
+          
+          // 执行原始方法
+          Object result = pjp.proceed();
+          // 执行原始方法之后
+          
+          // 返回原始方法的结果
+          return result;
+      }
+  }
+  ```
+
+**应用场景：**一般用于增强业务层（Service）方法的功能（日志记录、权限控制、事务管理）
+
+#### 概念
+
+1. 连接点：`JointPoint`，指可被AOP控制的方法，通俗点就是业务层`Bean`的`public`方法
+2. 通知：`Advice`，AOP层的方法，要在里面完成增强的功能，同时代理连接点的功能
+2. 切入点：`PointCut`，匹配连接点的条件，`@Around("execution(...)")`就描述了一个切入点表达式，表明要代理哪个方法
+2. 切面：`Aspect`，一组通知和切入点的集合
+2. 目标：`Target`，理解为切入点所代理的方法所在的`Bean`对象
+
+#### 通知类型
+
+五种通知类型对应的注解：
+
+- `@Around`：AOP层方法参数是`ProceedingJoinPoint`类型，需要在里面调用`proceed()`来执行被代理的方法，代理方法前后都可以写自定义的功能
+- `@Before`：AOP层方法参数是`JointPoint`类型，只需要写自定义的功能，被代理方法前会执行
+- `@After`：同上，被代理方法后执行
+- `@AfterReturning`：同上，被代理方法**正常返回**后会执行
+- `@AfterThrowing`：同上，被代理方法**出现异常**时才会执行
+
+预定义不同切入点（使用`@PointCut`注解）：
+
+```java
+//切入点方法（公共的切入点表达式）
+@Pointcut("execution(* com.itheima.service.*.*(..))")
+public void pt(){}
+```
+
+更改通知注解形式：`@Around("pt()")`
+
+#### 执行顺序
+
+多个切面类使用了相同的切入点，执行顺序默认按切面类类名升序执行
+
+要指定顺序，在切面类上使用`@Order(num)`，指定num的相对大小
+
+#### 切入点表达式
+
+指AOP方法注解里面那一坨`execution(...)`，作用是指定被代理的方法，有两种写法：
+
+1. `execution(访问修饰符?  返回值  包名.类名.?方法名(方法参数) throws 异常?)`
+   - 访问修饰符（`public`），包名.类名.，throws 异常这些都可以省略，但不建议省略包名.类名
+   - 可以用`*`匹配**一个**独立的任意符号，可以是修饰符，一个包名，一个类名，任意类型的一个参数
+   - 可以用`..`匹配任意个独立的符号
+   - 可以用`&&`，`||`，`!`连接多个表达式指明匹配的方法
+   - 例子：`execution(* com.itheima.service.DeptService.*(..))`匹配`service`包下的`DeptService`接口中的任意方法
+2. `@annotation(自定义注解全类名)`
+   - 需要自定义注解，一般放在`anno`包下
+   - 在业务层方法需要代理的方法上加上自定义的注解
+   - AOP方法通知注解里的`execution`换成`@annotation(自定义注解全类名)`
+
 ### SpringBoot
+
+#### 作用域
+
+IOC容器中管理的`Bean`默认是单例（只有一个对象）
+
+如果要求管理的`Bean`有多个实例：
+
+在使用`@Component`注解的类上**添加**一个注解`@Scope("prototype")`
+
+之后每一次使用该`@Bean`时会创建一个新的实例
+
+#### 第三方Bean管理
+
+1. 添加一个配置类
+2. **配置类**上使用注解**`@Configuration`**标识该类是一个配置类
+3. 定义一个方法，返回值是要让IOC容器管理的对象，在**方法**上使用注解**`@Bean`**
+
+```java
+package com.itheima.config;
+
+import com.itheima.utils.AliyunOSSOperator;
+import com.itheima.utils.AliyunOSSProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class OSSConfig {
+    @Bean
+    public AliyunOSSOperator aliyunOSSOperator(AliyunOSSProperties ossProperties) {
+        return new AliyunOSSOperator(ossProperties);
+    }
+}
+```
+
+如果方法有参数，Spring会自动去IOC容器里面找对应类型的数据
+
+#### 起步依赖和自动配置
+
+起步依赖就是形如`spring-boot-starter-xxxx`（官方starter）或者`xxxx-spring-boot-starter`（第三方starter）的整合包，里面设置了一组依赖包，在引入starter时会根据maven包管理自动引入所有依赖包
+
+
+
+自动配置指的是当在maven包管理引入包，Spring容器启动后，包中的一些**配置类**，**bean对象**自动存入到容器中，无需手动做上述的Bean管理
+
+实现方案：
+
+1. 在Springboot启动类上使用**`@Import`**注解
+
+   - 导入普通类：`@Import(Gson.class)`，该类会实例化成为一个Bean被Spring容器管理
+
+   - 导入配置类：`@Import(Config.class)`，参考“第三方Bean管理”的配置类，类中所有配置`@Bean`的方法都会实例化成为一个Bean被Spring容器管理
+
+   - 导入`ImportSelector`接口实现类：
+
+     实现`ImportSelector`接口
+
+     ```java
+     public class MyImportSelector implements ImportSelector {
+         public String[] selectImports(AnnotationMetadata importingClassMetadata) {
+             //返回值字符串数组（数组中封装了全限定名称的类）
+             return new String[]{"com.example.HeaderConfig"};
+         }
+     }
+     ```
+
+     导入：`@Import(MyImportSelector.class)`
+
+2. 第三方依赖通常会封装自己的`@Import`，对外提供**`@EnableXXXX`**注解，在启动类上使用该注解，相当于导入了第三方的配置类和Bean对象
+
+   ```java
+   @Retention(RetentionPolicy.RUNTIME)
+   @Target(ElementType.TYPE)
+   @Import(MyImportSelector.class)//指定要导入哪些bean对象或配置类
+   public @interface EnableHeaderConfig { 
+   }
+   ```
+
+##### 自动配置原理
+
+在启动类上的`@SpringBootApplication`注解，这个注解封装了下面三个注解：
+
+1. `@SpringBootConfiguration`：该注解又封装了`@Configuration`，声明当前类是一个配置类
+2. `@ComponentScan`：通过该注解可以扫描启动类所在包及其子包中的被`@Component`标注的类，实例化为Bean对象管理
+3. `@EnableAutoConfiguration`：**重点**，封装了`@Import`注解，会读取当前项目下所有依赖jar包中`META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`文件里面定义的配置类，然后导入这些配置类
+
+
+
+导入配置类时，配置类中定义的Bean不会一次性全部导入，由`@Conditional`注解来管理：
+
+- `@ConditionalOnClass`：判断环境中有对应字节码文件，才注册bean到IOC容器
+- `@ConditionalOnMissingBean`：判断环境中没有对应的bean(类型或名称)，才注册bean到IOC容器
+- `@ConditionalOnProperty`：判断配置文件中有对应属性和值，才注册bean到IOC容器
 
 
 
