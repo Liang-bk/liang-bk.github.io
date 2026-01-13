@@ -188,7 +188,7 @@ language: '中文'
    for i in {0..4}; do dd if=/dev/urandom of=seed_$i bs=64 count=10; done
    ```
 
-   这个命令的作用是创建 5 个（`seed_0` 到 `seed_4`）种子文件。每个文件包含 `64 * 10 = 640` 字节的**完全随机的数据**，这些数据来源于 [urandom](vscode-file://vscode-app/e:/vscode/Microsoft VS Code/resources/app/out/vs/code/electron-browser/workbench/workbench.html)（Linux 系统中的一个高质量随机数生成器）。
+   这个命令的作用是创建 5 个（`seed_0` 到 `seed_4`）种子文件。每个文件包含 `64 * 10 = 640` 字节的**完全随机的数据**，这些数据来源于 `urandom`（Linux 系统中的一个高质量随机数生成器）。
 
    在这种情况下，生成的种子是**随机的、无结构的二进制数据**。这适用于测试那些期望接收任意二进制流的程序。但对于需要特定文件格式（如 XML, JSON, PNG）的程序，使用完全随机的数据作为种子效果很差。更好的做法是提供一些结构合法、内容简单的真实文件作为种子。
 
@@ -244,11 +244,96 @@ language: '中文'
 
 ## 3. 练习2
 
+和练习1没什么区别，就是封装了一个类，在`interact`函数里面接收标准输入流
 
+- 初始有两个乘员，`Captain`，`CoPilot`
+- `t`：飞机有乘员则起飞
+- `l`：飞机有乘员则降落
+- `h`：增加一个乘员
+- `f`：减少一个乘员
 
+指定`l`命令时，如果没有乘员就`abort`
 
+## 4. 练习3
 
+该练习主要介绍`slice-fuzzing`的办法，人话就是只针对部分代码片段进行模糊测试
 
+`exercise3`中给了一个例子：
 
+```c++
+/*
+ *
+ *
+ * This file isolates the Specs class and tests out the 
+ * choose_color function specifically.
+ * 
+ * 
+ * 
+ */
 
+#include "specs.h"
 
+int main(int argc, char** argv) {
+    // In order to call any functions in the Specs class, a Specs
+    // object is necessary. This is using one of the constructors
+    // found in the Specs class.
+    Specs spec(505, 110, 50);
+    // By looking at all the code in our project, this is all the 
+    // necessary setup required. Most projects will have much more
+    // that is needed to be done in order to properly setup objects.
+
+    // This section should be in your code that you write after all the 
+    // necessary setup is done. It allows AFL++ to start from here in 
+    // your main() to save time and just throw new input at the target.
+    #ifdef __AFL_HAVE_MANUAL_CONTROL
+        __AFL_INIT();
+    #endif
+
+    spec.choose_color();
+    //spec.min_alt();
+
+    return 0;
+}
+```
+
+该代码独立`main.cpp`，在`cmake`中被额外添加构建可执行文件的规则，这相当于主动编写模糊测试驱动程序，在这个程序中，只去测试`Specs`类的`choose_color()`功能, 然后**连接 Fuzzer**：它包含接收 fuzzer 输入并传递给目标函数的逻辑（这部分通常是隐式的，例如目标函数从标准输入读取数据）
+
+**AFL++持久模式：**
+
+标准的模糊测试流程中：AFL++ 每测试一个输入，都需要：
+
+1. 启动一个全新的进程。
+2. 在那个新进程里，从`main`函数开始完整地执行一遍程序。
+3. 程序执行完毕后，销毁进程。
+
+如果在 fuzz 的关键步骤前面有诸如“载入配置文件”等步骤，仍然会造成效率浪费。因此，我们可以自行选择 fuzz 入口，然后添加以下代码：
+
+```c++
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+  __AFL_INIT();
+#endif
+```
+
+该代码之前的部分只被执行一次，之后的部分才是测试的重点，会不断执行，以此来提高fuzzing的效率
+
+**自定义切片代码：**
+
+类似给出的样例，可以创建cpp文件来测试需要的函数：
+
+```c++
+#include "specs.h"
+
+int main(int argc, char** argv) {
+    Specs spec(505, 110, 50);
+    
+    #ifdef __AFL_HAVE_MANUAL_CONTROL
+        __AFL_INIT();
+    #endif
+
+    spec.fuel_cap();
+
+    return 0;
+}
+```
+
+在`cmake`添加构建规则，然后指定fuzz的目标即可
