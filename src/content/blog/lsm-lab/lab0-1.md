@@ -9,7 +9,7 @@ tags:
   - lsm tree
   - database
 language: '中文'
-draft:true
+draft: true
 ---
 
 ## 一. lab0 环境准备
